@@ -1,7 +1,9 @@
 """LLM / VLM provider abstraction with structured (JSON-schema) output.
 
 Providers:
-- openai: OpenAI Chat Completions (text and vision) with strict JSON-schema output (default).
+- gemini: Google Gemini API through its OpenAI-compatible endpoint (default). Meant for the free
+  tier: a key from a Google project without billing, throttled to stay under the free rate limit.
+- openai: OpenAI Chat Completions (text and vision) with strict JSON-schema output.
 - anthropic: Claude via the official SDK (text and vision), structured outputs.
 - openai_compatible: any OpenAI-compatible server, e.g. a local open-source VLM
   served by Ollama / vLLM / llama.cpp (Qwen2.5-VL, MiniCPM-V, ...).
@@ -12,6 +14,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import threading
 import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional, Protocol, Union
@@ -162,7 +165,7 @@ class OpenAICompatibleProvider:
         if self.max_tokens:
             body["max_completion_tokens"] = self.max_tokens
         t0 = time.perf_counter()
-        r = self._http.post("/chat/completions", json=body)
+        r = self._post(body)
         if r.status_code >= 400:
             raise ProviderError(f"{self.name} error {r.status_code}: {r.text[:300]}")
         j = r.json()
@@ -179,6 +182,9 @@ class OpenAICompatibleProvider:
         except json.JSONDecodeError as e:
             raise ProviderError(f"invalid JSON from model: {e}") from e
 
+    def _post(self, body: dict[str, Any]):
+        return self._http.post("/chat/completions", json=body)
+
 
 class OpenAIProvider(OpenAICompatibleProvider):
     """OpenAI API (api.openai.com) with strict structured outputs; key from OPENAI_API_KEY."""
@@ -194,6 +200,56 @@ class OpenAIProvider(OpenAICompatibleProvider):
             raise ProviderError("OPENAI_API_KEY is not set")
         super().__init__(os.environ.get("OPENAI_BASE_URL", base_url), model, api_key=key, timeout=120,
                          max_tokens=max_tokens)
+
+
+class GeminiProvider(OpenAICompatibleProvider):
+    """Gemini API (generativelanguage.googleapis.com) via its OpenAI-compatible endpoint; key from GEMINI_API_KEY.
+
+    The free tier is rate-limited per project, so requests are spaced ``min_interval_s`` apart (shared by
+    every instance in the process, since eval threads each build their own provider) and a 429/503 is
+    retried after a wait. When the daily quota is used up the retries fail too: the free tier rejects
+    the request, it does not bill it.
+    """
+
+    name = "gemini"
+    strict = False  # Gemini ignores OpenAI's strict flag; the schema itself is still enforced
+
+    _lock = threading.Lock()
+    _next_slot = 0.0
+
+    def __init__(self, model: str, max_tokens: Optional[int] = None,
+                 base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai",
+                 min_interval_s: float = 6.0, max_retries: int = 3,
+                 sleep: Callable[[float], None] = time.sleep) -> None:
+        _require_paid_opt_in("Gemini")
+        key = os.environ.get("GEMINI_API_KEY")
+        if not key:
+            raise ProviderError("GEMINI_API_KEY is not set")
+        super().__init__(base_url, model, api_key=key, timeout=120, max_tokens=max_tokens)
+        self.min_interval_s = min_interval_s
+        self.max_retries = max_retries
+        self._sleep = sleep
+
+    def _wait_for_slot(self) -> None:
+        with GeminiProvider._lock:
+            now = time.monotonic()
+            slot = max(now, GeminiProvider._next_slot)
+            GeminiProvider._next_slot = slot + self.min_interval_s
+        if slot > now:
+            self._sleep(slot - now)
+
+    def _post(self, body: dict[str, Any]):
+        for attempt in range(self.max_retries + 1):
+            self._wait_for_slot()
+            r = self._http.post("/chat/completions", json=body)
+            if r.status_code not in (429, 503) or attempt == self.max_retries:
+                break
+            retry_after = r.headers.get("retry-after", "")
+            self._sleep(float(retry_after) if retry_after.isdigit() else 10.0 * 2 ** attempt)
+        if r.status_code == 429:
+            raise ProviderError("gemini free-tier quota reached (429, nothing billed); "
+                                f"wait for the quota to reset: {r.text[:200]}")
+        return r
 
 
 class MockProvider:
@@ -214,7 +270,12 @@ class MockProvider:
 
 def get_llm(section: dict[str, Any], cfg: Optional[dict[str, Any]] = None) -> LLMProvider:
     cfg = cfg or pipeline_config()
-    provider = section.get("provider", "openai")
+    provider = section.get("provider", "gemini")
+    if provider == "gemini":
+        gc = cfg.get("gemini", {})
+        return GeminiProvider(section["model"], int(section.get("max_tokens", 16000)),
+                              gc.get("base_url", "https://generativelanguage.googleapis.com/v1beta/openai"),
+                              float(gc.get("min_interval_s", 6.0)), int(gc.get("max_retries", 3)))
     if provider == "openai":
         return OpenAIProvider(section["model"], int(section.get("max_tokens", 16000)))
     if provider == "anthropic":
@@ -226,28 +287,31 @@ def get_llm(section: dict[str, Any], cfg: Optional[dict[str, Any]] = None) -> LL
     raise ValueError(f"unknown LLM provider {provider} (mock providers are injected in tests)")
 
 
-PAID_PROVIDERS = ("openai", "anthropic")
+GATED_PROVIDERS = ("gemini", "openai", "anthropic")
 
 
 def paid_llm_enabled() -> bool:
-    """Paid model APIs are off unless DOCEX_ENABLE_LLM=true, even when a key is present.
+    """Hosted model APIs are off unless DOCEX_ENABLE_LLM=true, even when a key is present.
 
-    A key alone must never start spending: B and C stay off in the API, the UI and the eval
-    until someone opts in explicitly (and has set a spend limit with the provider).
+    A key alone must never start spending or using up a quota: B and C stay off in the API, the UI and
+    the eval until someone opts in explicitly (with a spend limit set, or a free-tier key without billing).
     """
     return os.environ.get("DOCEX_ENABLE_LLM", "").lower() in ("1", "true", "yes")
 
 
 def _require_paid_opt_in(provider: str) -> None:
     if not paid_llm_enabled():
-        raise ProviderError(f"{provider} calls are disabled; set DOCEX_ENABLE_LLM=true to allow paid API calls")
+        raise ProviderError(f"{provider} calls are disabled; set DOCEX_ENABLE_LLM=true to allow model API calls")
 
 
 def llm_available(section: dict[str, Any]) -> bool:
-    if section.get("provider", "openai") in PAID_PROVIDERS and not paid_llm_enabled():
+    provider = section.get("provider", "gemini")
+    if provider in GATED_PROVIDERS and not paid_llm_enabled():
         return False
-    if section.get("provider", "openai") == "openai":
+    if provider == "gemini":
+        return bool(os.environ.get("GEMINI_API_KEY"))
+    if provider == "openai":
         return bool(os.environ.get("OPENAI_API_KEY"))
-    if section.get("provider") == "anthropic":
+    if provider == "anthropic":
         return bool(os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN"))
     return True

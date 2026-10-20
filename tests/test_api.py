@@ -64,6 +64,7 @@ def test_rejects_bad_type_and_size(client):
 
 def test_llm_approach_unavailable_without_key(client, monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     r = client.post("/documents", files={"file": ("x.png", _png(), "image/png")}, data={"approach": "C"})
     assert r.status_code == 400
 
@@ -115,6 +116,7 @@ def test_export_approved_documents(client):
 
 def test_key_alone_does_not_enable_paid_approaches(client, monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setenv("GEMINI_API_KEY", "test")
     monkeypatch.delenv("DOCEX_ENABLE_LLM", raising=False)
     assert client.get("/health").json()["available_approaches"] == ["A"]
     r = client.post("/documents", files={"file": ("x.png", _png(), "image/png")}, data={"approach": "C"})
