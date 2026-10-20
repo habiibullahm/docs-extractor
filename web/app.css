@@ -160,6 +160,7 @@ button .k { font: 500 11px var(--font-data); opacity: .7; margin-left: 6px; }
 .stages li::before { content: "○"; display: inline-block; width: 18px; color: var(--line); }
 .stages li.active { color: var(--fg); }
 .stages li.active::before { content: "●"; color: var(--ink); animation: pulse 1s infinite alternate; }
+.progress .stage-note { margin: 0; font-size: 13px; color: var(--fg-muted); }
 .progress.failed { border-color: var(--err); background: var(--err-tint); }
 @keyframes pulse { from { opacity: .35; } to { opacity: 1; } }
 

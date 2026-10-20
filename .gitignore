@@ -1,6 +1,7 @@
 .venv/
 __pycache__/
 *.pyc
+*.egg-info/
 .pytest_cache/
 .env
 # datasets and generated files are not committed: rebuild with `python -m synth.build`
