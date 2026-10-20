@@ -53,7 +53,9 @@ scoring:
   # Auto-approve threshold per approach, chosen from the dev-set threshold curve as the
   # highest straight-through rate with <= 1% errors among auto-approved documents
   # (eval/reports/<run>/report.md). B and C: placeholder until their dev eval has run.
-  thresholds: {A: 0.77, B: 0.90, C: 0.90}
+  # From the dev curves (eval/reports/*_dev_ci). B and C have no threshold with <= 1% auto-approve error,
+  # so 1.0 routes every B/C document to review until their confidence is calibrated.
+  thresholds: {A: 0.77, B: 1.0, C: 1.0}
 
 limits:
   max_upload_mb: 10
