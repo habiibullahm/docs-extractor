@@ -70,7 +70,7 @@ def test_llm_approach_unavailable_without_key(client, monkeypatch):
 
 def test_ui_and_health_for_ui(client):
     r = client.get("/")
-    assert r.status_code == 200 and "docex review desk" in r.text
+    assert r.status_code == 200 and "meja cek dokumen" in r.text
     assert client.get("/web/app.js").status_code == 200
     h = client.get("/health").json()
     assert h["available_approaches"][0] == "A"

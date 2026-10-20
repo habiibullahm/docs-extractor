@@ -80,7 +80,7 @@ jobs:
         run: |
           docker run -d --name docex -p 7860:7860 docex:ci
           for i in $(seq 1 30); do curl -fs localhost:7860/health && break; sleep 2; done
-          curl -fs localhost:7860/ | grep -q "docex review desk"
+          curl -fs localhost:7860/ | grep -q "meja cek dokumen"
           job=$(curl -fs -X POST "localhost:7860/samples/receipt-clean-0004?approach=A" | python3 -c "import json,sys;print(json.load(sys.stdin)['job_id'])")
           for i in $(seq 1 30); do
             status=$(curl -fs localhost:7860/documents/$job | python3 -c "import json,sys;print(json.load(sys.stdin)['status'])")
