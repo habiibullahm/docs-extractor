@@ -1,4 +1,5 @@
 """Pipeline tests with a mocked LLM (no network) and the real local OCR path."""
+import json
 import io
 from PIL import Image, ImageDraw
 
@@ -98,3 +99,42 @@ def test_mask_ids():
     assert mask_ids("NPWP 01.234.567.8-901.234 ok") == "NPWP 01***********34 ok"
     assert mask_ids("NIK 3171234567890001") == "NIK 31************01"
     assert mask_ids("total 1250000") == "total 1250000"
+
+
+def test_openai_provider_strict_schema_and_parsing(monkeypatch):
+    import httpx
+
+    from docex.providers.llm import ImagePart, OpenAIProvider
+    from docex.schemas.llm_schema import extraction_schema
+
+    def strict_ok(node):
+        # OpenAI strict mode: every object closed and every property required
+        if isinstance(node, dict):
+            if node.get("type") == "object" or "object" in (node.get("type") or []):
+                assert node.get("additionalProperties") is False
+                assert set(node.get("required", [])) == set(node.get("properties", {}))
+            for v in node.values():
+                strict_ok(v)
+        elif isinstance(node, list):
+            for v in node:
+                strict_ok(v)
+
+    for t in ("faktur_pajak", "invoice", "receipt"):
+        strict_ok(extraction_schema(t))
+
+    seen = {}
+
+    def handler(request):
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(200, json={
+            "choices": [{"finish_reason": "stop", "message": {"content": '{"x": 1}', "refusal": None}}],
+            "usage": {"prompt_tokens": 1000, "completion_tokens": 100}})
+
+    monkeypatch.setenv("OPENAI_API_KEY", "test")
+    p = OpenAIProvider("gpt-4.1-mini", max_tokens=500)
+    p._http = httpx.Client(base_url="https://api.openai.com/v1", transport=httpx.MockTransport(handler))
+    r = p.complete_json("sys", ["hello", ImagePart(b"\xff\xd8")], {"type": "object"})
+    assert r.data == {"x": 1}
+    assert seen["body"]["response_format"]["json_schema"]["strict"] is True
+    assert seen["body"]["messages"][1]["content"][1]["type"] == "image_url"
+    assert r.usage.cost_usd > 0

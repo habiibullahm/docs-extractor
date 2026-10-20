@@ -112,7 +112,7 @@ def main(argv: Optional[list[str]] = None) -> Path:
         section = cfg["llm" if args.approach == "B" else "vlm"]
         if not llm_available(section):
             sys.exit(f"approach {args.approach} needs credentials for provider '{section['provider']}' "
-                     "(set ANTHROPIC_API_KEY)")
+                     "(set OPENAI_API_KEY, or ANTHROPIC_API_KEY with provider: anthropic)")
 
     docs = select_docs(args.split, args.limit, args.types.split(",") if args.types else None,
                        args.sources.split(",") if args.sources else None)

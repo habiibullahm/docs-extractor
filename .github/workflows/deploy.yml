@@ -3,7 +3,7 @@ name: deploy-hf-space
 # Pushes the repo to a Hugging Face Docker Space. Needs the HF_TOKEN secret (write access).
 # Optional: repository variable HF_SPACE (e.g. "user/docex-demo"); defaults to <hf-user>/docex-demo.
 # Approach C in the public demo spends your API credits, so it is opt-in: set repository variable
-# DEMO_ENABLE_LLM=true to copy the ANTHROPIC_API_KEY secret into the Space. Otherwise the demo runs approach A.
+# DEMO_ENABLE_LLM=true to copy the OPENAI_API_KEY secret into the Space. Otherwise the demo runs approach A.
 
 on:
   push:
@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       HF_TOKEN: ${{ secrets.HF_TOKEN }}
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       HF_SPACE: ${{ vars.HF_SPACE }}
       DEMO_ENABLE_LLM: ${{ vars.DEMO_ENABLE_LLM }}
     steps:

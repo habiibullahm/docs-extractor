@@ -1,6 +1,7 @@
 """LLM / VLM provider abstraction with structured (JSON-schema) output.
 
 Providers:
+- openai: OpenAI Chat Completions (text and vision) with strict JSON-schema output (default).
 - anthropic: Claude via the official SDK (text and vision), structured outputs.
 - openai_compatible: any OpenAI-compatible server, e.g. a local open-source VLM
   served by Ollama / vLLM / llama.cpp (Qwen2.5-VL, MiniCPM-V, ...).
@@ -131,10 +132,14 @@ class OpenAICompatibleProvider:
 
     name = "openai_compatible"
 
-    def __init__(self, base_url: str, model: str, api_key: Optional[str] = None, timeout: float = 300) -> None:
+    strict = False
+
+    def __init__(self, base_url: str, model: str, api_key: Optional[str] = None, timeout: float = 300,
+                 max_tokens: Optional[int] = None) -> None:
         import httpx
 
         self.model = model
+        self.max_tokens = max_tokens
         self._http = httpx.Client(base_url=base_url.rstrip("/"), timeout=timeout,
                                   headers={"Authorization": f"Bearer {api_key or os.environ.get('OPENAI_COMPATIBLE_API_KEY', 'local')}"})
 
@@ -149,21 +154,44 @@ class OpenAICompatibleProvider:
         body = {
             "model": self.model,
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": parts}],
-            "response_format": {"type": "json_schema", "json_schema": {"name": "extraction", "schema": schema}},
+            "response_format": {"type": "json_schema",
+                                "json_schema": {"name": "extraction", "schema": schema, "strict": self.strict}},
             "temperature": 0,
         }
+        if self.max_tokens:
+            body["max_completion_tokens"] = self.max_tokens
         t0 = time.perf_counter()
         r = self._http.post("/chat/completions", json=body)
         if r.status_code >= 400:
-            raise ProviderError(f"openai-compatible error {r.status_code}: {r.text[:300]}")
+            raise ProviderError(f"{self.name} error {r.status_code}: {r.text[:300]}")
         j = r.json()
-        text = j["choices"][0]["message"]["content"]
+        choice = j["choices"][0]
+        if choice["message"].get("refusal"):
+            raise ProviderError("model refused the request")
+        if choice.get("finish_reason") == "length":
+            raise ProviderError("output truncated (max tokens)")
+        text = choice["message"]["content"]
         u = j.get("usage") or {}
         usage = Usage(self.model, u.get("prompt_tokens", 0), u.get("completion_tokens", 0), time.perf_counter() - t0)
         try:
             return LLMResponse(json.loads(text), usage, text)
         except json.JSONDecodeError as e:
             raise ProviderError(f"invalid JSON from model: {e}") from e
+
+
+class OpenAIProvider(OpenAICompatibleProvider):
+    """OpenAI API (api.openai.com) with strict structured outputs; key from OPENAI_API_KEY."""
+
+    name = "openai"
+    strict = True
+
+    def __init__(self, model: str, max_tokens: Optional[int] = None,
+                 base_url: str = "https://api.openai.com/v1") -> None:
+        key = os.environ.get("OPENAI_API_KEY")
+        if not key:
+            raise ProviderError("OPENAI_API_KEY is not set")
+        super().__init__(os.environ.get("OPENAI_BASE_URL", base_url), model, api_key=key, timeout=120,
+                         max_tokens=max_tokens)
 
 
 class MockProvider:
@@ -184,7 +212,9 @@ class MockProvider:
 
 def get_llm(section: dict[str, Any], cfg: Optional[dict[str, Any]] = None) -> LLMProvider:
     cfg = cfg or pipeline_config()
-    provider = section.get("provider", "anthropic")
+    provider = section.get("provider", "openai")
+    if provider == "openai":
+        return OpenAIProvider(section["model"], int(section.get("max_tokens", 16000)))
     if provider == "anthropic":
         return AnthropicProvider(section["model"], section.get("effort"), int(section.get("max_tokens", 16000)),
                                  section.get("fallbacks", "default"))
@@ -195,6 +225,8 @@ def get_llm(section: dict[str, Any], cfg: Optional[dict[str, Any]] = None) -> LL
 
 
 def llm_available(section: dict[str, Any]) -> bool:
+    if section.get("provider", "openai") == "openai":
+        return bool(os.environ.get("OPENAI_API_KEY"))
     if section.get("provider") == "anthropic":
         return bool(os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN"))
     return True

@@ -63,6 +63,6 @@ def test_rejects_bad_type_and_size(client):
 
 
 def test_llm_approach_unavailable_without_key(client, monkeypatch):
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     r = client.post("/documents", files={"file": ("x.png", _png(), "image/png")}, data={"approach": "C"})
     assert r.status_code == 400

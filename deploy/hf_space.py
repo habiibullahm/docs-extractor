@@ -32,8 +32,8 @@ def main() -> None:
     api = HfApi(token=os.environ["HF_TOKEN"])
     space = os.environ.get("HF_SPACE") or f"{api.whoami()['name']}/docex-demo"
     api.create_repo(space, repo_type="space", space_sdk="docker", exist_ok=True)
-    if os.environ.get("DEMO_ENABLE_LLM") == "true" and os.environ.get("ANTHROPIC_API_KEY"):
-        api.add_space_secret(space, "ANTHROPIC_API_KEY", os.environ["ANTHROPIC_API_KEY"])
+    if os.environ.get("DEMO_ENABLE_LLM") == "true" and os.environ.get("OPENAI_API_KEY"):
+        api.add_space_secret(space, "OPENAI_API_KEY", os.environ["OPENAI_API_KEY"])
     repo_url = f"https://github.com/{os.environ.get('GITHUB_REPOSITORY', '')}"
     with tempfile.TemporaryDirectory() as tmp:
         t = Path(tmp)

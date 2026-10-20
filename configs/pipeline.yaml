@@ -13,16 +13,18 @@ ocr:
   languages: "ind+eng"
   psm: 6                # tesseract page segmentation mode (6 won on train, see README)
 
+# Default provider is OpenAI (OPENAI_API_KEY). Switch to Claude with provider: anthropic,
+# model: claude-opus-5-5 (ANTHROPIC_API_KEY), or a local model with provider: openai_compatible.
 llm:
-  provider: anthropic   # anthropic | mock | openai_compatible
-  model: claude-opus-5-5
-  effort: low
+  provider: openai      # openai | anthropic | openai_compatible | mock
+  model: gpt-4.1-mini
+  effort: low           # anthropic only
   max_tokens: 16000
   temperature: null
 
 vlm:
-  provider: anthropic
-  model: claude-opus-5-5
+  provider: openai
+  model: gpt-4.1-mini
   effort: low
   max_tokens: 16000
 
@@ -63,6 +65,9 @@ costs:
   cpu_usd_per_hour: 0.05      # assumed price of 1 vCPU-hour for local OCR/compute
   # USD per 1M tokens; keep in sync with provider price lists
   token_prices:
+    gpt-4.1-mini: {input: 0.40, output: 1.60}   # TODO(verify): check current OpenAI pricing
+    gpt-4.1: {input: 2.00, output: 8.00}
+    gpt-4o-mini: {input: 0.15, output: 0.60}
     claude-opus-5-5: {input: 4.00, output: 20.00}
     claude-sonnet-5-5: {input: 2.00, output: 10.00}
     claude-haiku-5-5: {input: 0.10, output: 0.50}
