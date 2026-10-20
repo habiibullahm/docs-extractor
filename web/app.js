@@ -9,6 +9,7 @@ const APPROACHES = {
 };
 const DOC_TYPES = { faktur_pajak: "Faktur pajak", invoice: "Invoice", receipt: "Struk" };
 const DECISIONS = { approve: "DISETUJUI", correct: "DIKOREKSI", reject: "DITOLAK" };
+const DECIDED = { approve: "Disetujui", correct: "Dikoreksi", reject: "Ditolak" };
 const QUALITY = { clean: "bersih", light: "sedikit kotor", medium: "cukup kotor", heavy: "sangat kotor" };
 
 // Field layout per document type, in the order the paper document uses (design.md, "The workspace").
@@ -83,18 +84,54 @@ const ITEM_COLS = [
   ["discount", "Diskon", "money"],
   ["total", "Total", "money"],
 ];
-// Validation rules explained in plain words; the server's exact message stays in the tooltip.
+// Validation rules explained in plain words, with the numbers from this document where the check used them.
+// The server's exact message stays in the tooltip. Each rule gets (field label, values, issue, doc type).
 const RULES = {
-  required_fields: (f) => `${f || "Kolom penting"} tidak ditemukan di dokumen.`,
-  line_items_sum: () => "Jumlah semua baris barang tidak sama dengan subtotal atau total di dokumen.",
-  npwp_format: (f) => `${f || "NPWP"} jumlah digitnya tidak pas. NPWP harus 15 atau 16 digit.`,
-  nik_format: (f) => `${f || "NIK"} harus 16 digit.`,
-  faktur_serial_format: () => "Jumlah digit nomor seri faktur tidak pas.",
-  date_plausible: (f) => `${f || "Tanggal"} tidak masuk akal: formatnya salah, ada di masa depan, atau terlalu lama.`,
-  due_after_issue: () => "Tanggal jatuh tempo lebih awal dari tanggal invoice.",
-  totals_arithmetic: () => "Hitungan tidak cocok: subtotal, diskon, pajak, dan total tidak saling sesuai.",
-  ppn_rate: () => "Nilai PPN tidak sesuai dengan tarif PPN yang berlaku.",
+  required_fields: (f) => `${f || "Kolom penting"} tidak ditemukan di dokumen. Isi dari scan kalau ada.`,
+  line_items_sum: (f, v, i, t) => {
+    const items = v.line_items || [];
+    if (items.some((it) => it.total == null)) return "Ada baris barang yang belum punya total. Isi totalnya dari scan.";
+    const target = i.fields?.[1];
+    const sum = items.reduce((a, it) => a + Number(it.total || 0), 0);
+    if (!target || v[target] == null) return "Jumlah semua baris barang tidak sama dengan subtotal atau total di dokumen.";
+    return `Jumlah rincian barang ${money(sum, v)}, tapi ${lowerFirst(fieldLabel(target, t))} di dokumen ${money(v[target], v)}.`;
+  },
+  npwp_format: (f, v, i) => `${f || "NPWP"} terbaca ${digits(v, i)} digit, padahal NPWP harus 15 atau 16 digit.`,
+  nik_format: (f, v, i) => `${f || "NIK"} terbaca ${digits(v, i)} digit, padahal NIK harus 16 digit.`,
+  faktur_serial_format: (f, v, i) => `Nomor seri faktur terbaca ${digits(v, i)} digit, padahal seharusnya 16 atau 17 digit.`,
+  date_plausible: (f, v, i) => {
+    const m = String(i.message || "");
+    const when = longDate(v[i.fields?.[0]]) || v[i.fields?.[0]];
+    if (m.includes("in the future")) return `${f || "Tanggal"} (${when}) ada di masa depan. Cocokkan dengan scan.`;
+    if (m.includes("older than")) return `${f || "Tanggal"} (${when}) terlalu lama. Cocokkan dengan scan.`;
+    return `${f || "Tanggal"} tidak terbaca sebagai tanggal yang valid. Tulis dengan format TTTT-BB-HH.`;
+  },
+  due_after_issue: (f, v) => `Jatuh tempo (${longDate(v.due_date) || v.due_date}) lebih awal dari tanggal invoice (${longDate(v.date) || v.date}).`,
+  totals_arithmetic: (f, v, i, t) => {
+    const n = (k) => Number(v[k] || 0);
+    if (t === "faktur_pajak" && v.total != null && v.dpp != null)
+      return `Dasar pajak (DPP) ${money(v.dpp, v)} tidak cocok dengan harga jual dikurangi potongan (${money(n("total") - n("discount"), v)}), baik penuh maupun 11/12.`;
+    if (t === "invoice" && v.subtotal != null && v.total != null)
+      return `Subtotal dikurangi diskon ditambah pajak hasilnya ${money(n("subtotal") - n("discount") + n("tax"), v)}, tapi total di dokumen ${money(v.total, v)}.`;
+    if (t === "receipt" && v.subtotal != null && v.total != null)
+      return `Subtotal dikurangi diskon ditambah pajak dan biaya layanan hasilnya ${money(n("subtotal") - n("discount") + n("tax") + n("service_charge"), v)}, tapi total di dokumen ${money(v.total, v)}.`;
+    return "Hitungan tidak cocok: subtotal, diskon, pajak, dan total tidak saling sesuai.";
+  },
+  ppn_rate: (f, v, i, t) => {
+    if (t === "faktur_pajak" && v.ppn != null && v.dpp != null)
+      return `PPN ${money(v.ppn, v)} tidak sama dengan DPP ${money(v.dpp, v)} dikali tarif PPN yang berlaku pada tanggal faktur.`;
+    if (v.tax != null) return `Pajak ${money(v.tax, v)} tidak cocok dengan tarif PPN mana pun. Cocokkan dengan scan.`;
+    return "Nilai PPN tidak sesuai dengan tarif PPN yang berlaku.";
+  },
 };
+// Rupiah unless the invoice says another currency; two decimals only when the amount has cents.
+function money(x, v) {
+  const n = Number(x);
+  const s = Number.isInteger(n) ? idNum.format(n) : num2(n);
+  const cur = v?.currency && v.currency !== "IDR" ? v.currency : "Rp";
+  return `${cur} ${s}`;
+}
+const digits = (v, i) => String(getPath(v, i.fields?.[0] || "") ?? "").replace(/\D/g, "").length;
 
 const state = { health: null, approach: null, queue: [], doc: null, initial: {}, polling: null };
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -153,7 +190,9 @@ function errorText(status, data) {
   if (status === 429) return "Terlalu banyak permintaan dari alamat ini. Tunggu satu menit, lalu coba lagi.";
   if (status === 400 && detail?.includes("not available")) return "Metode ini belum aktif di server ini karena kunci API belum dipasang. Coba metode A.";
   if (status === 404) return "Data tidak ditemukan. Mungkin sudah terhapus saat server dimulai ulang.";
-  return detail ? `${detail} (HTTP ${status})` : `Server membalas dengan kode HTTP ${status}.`;
+  if (status === 422) return "Ada nilai koreksi yang formatnya tidak bisa dibaca. Periksa angka dan tanggalnya, lalu simpan lagi.";
+  if (status >= 500) return `Server sedang bermasalah (HTTP ${status}). Coba lagi sebentar lagi, atau pakai metode lain.`;
+  return `Permintaan gagal (HTTP ${status})${detail ? `: ${detail}` : ""}. Coba lagi.`;
 }
 let toastTimer;
 function toast(msg, isErr = false) {
@@ -252,7 +291,8 @@ async function submit(start, label) {
   const paint = (status) => {
     box.innerHTML = `<div class="head">${esc(label)}<span>${((Date.now() - t0) / 1000).toFixed(0)} detik</span></div>
       <ul class="stages"><li class="${status === "queued" ? "active" : ""}">Menunggu giliran diproses</li>
-      <li class="${status === "processing" ? "active" : ""}">Membaca dokumen, mengambil data, dan memeriksanya dengan metode ${state.approach}</li></ul>`;
+      <li class="${status === "processing" ? "active" : ""}">Membaca dan memeriksa dokumen dengan metode ${state.approach} (${APPROACHES[state.approach].name})</li></ul>
+      <p class="stage-note">Hasilnya terbuka otomatis setelah selesai.</p>`;
   };
   paint("queued");
   let job;
@@ -262,7 +302,7 @@ async function submit(start, label) {
     let d;
     try { d = await api("GET", `/documents/${job.job_id}`); } catch (e) { continue; }
     if (d.status === "done") { box.hidden = true; state.fromQueue = false; location.hash = `doc-${d.id}`; refreshQueueCount(); return; }
-    if (d.status === "failed") { box.className = "progress failed"; box.textContent = `Gagal diproses: ${d.error || "penyebabnya tidak diketahui"}`; return; }
+    if (d.status === "failed") { box.className = "progress failed"; box.textContent = `Dokumen ini gagal dibaca${d.error ? ` (${d.error})` : ""}. Coba scan yang lebih jelas atau metode lain.`; return; }
     paint(d.status);
   }
 }
@@ -284,7 +324,8 @@ async function loadQueue() {
   await refreshQueueCount();
   const body = $("#queue-body");
   if (!state.queue.length) {
-    body.innerHTML = `<tr><td colspan="5" class="empty">Tidak ada dokumen yang perlu dicek. Dokumen dengan skor di bawah batas akan muncul di sini.</td></tr>`;
+    body.innerHTML = `<tr><td colspan="5" class="empty">Belum ada dokumen yang perlu dicek. Dokumen dengan skor di bawah batas akan muncul di sini.
+      <a href="#extract">Coba contoh dokumen</a> untuk melihatnya.</td></tr>`;
     return;
   }
   body.innerHTML = state.queue.map((q) => `<tr tabindex="0" data-id="${esc(q.id)}">
@@ -312,18 +353,19 @@ function fieldLabel(path, type) {
 function humanReason(reason, type) {
   const s = String(reason || "");
   let m;
-  if ((m = s.match(/^low confidence on '([^']+)' \(([\d.]+)\)/))) return `Kurang yakin dengan ${lowerFirst(fieldLabel(m[1], type))} (${num2(m[2])})`;
-  if ((m = s.match(/^(\d+) validation error/))) return `Ada ${m[1]} kesalahan saat pemeriksaan otomatis`;
+  if ((m = s.match(/^low confidence on '([^']+)' \(([\d.]+)\)/))) return `${upperFirst(fieldLabel(m[1], type))} terbaca dengan tingkat yakin rendah (${num2(m[2])})`;
+  if ((m = s.match(/^(\d+) validation error/))) return `${m[1]} pemeriksaan otomatis tidak lolos`;
   if ((m = s.match(/^score ([\d.]+) >= threshold ([\d.]+)/))) return `Skor ${num2(m[1])} sudah mencapai batas ${num2(m[2])}, jadi disetujui otomatis`;
   if (s.includes("internally inconsistent")) return "Angka-angka di dokumen ini tidak saling cocok, jadi perlu dicek manusia";
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 // "Nama vendor" -> "nama vendor", but keep abbreviations such as "NPWP penjual".
 const lowerFirst = (t) => (/^[A-Z]{2}/.test(t) ? t : t.charAt(0).toLowerCase() + t.slice(1));
-function issueText(issue, type) {
+const upperFirst = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+function issueText(issue, type, values) {
   const f = issue.fields?.[0] ? fieldLabel(issue.fields[0], type) : "";
   const say = RULES[issue.rule];
-  return say ? say(f ? f.charAt(0).toUpperCase() + f.slice(1) : "") : issue.message;
+  return say ? say(f ? upperFirst(f) : "", values || {}, issue, type) : issue.message;
 }
 const thresholdFor = (a) => state.health?.thresholds?.[a] ?? 0.9;
 
@@ -338,7 +380,7 @@ async function openDoc(id) {
     return;
   }
   if (d.status === "queued" || d.status === "processing") {
-    view.innerHTML = `<div class="view"><p class="empty">Dokumen ini masih diproses.</p></div>`;
+    view.innerHTML = `<div class="view"><p class="empty">Dokumen ini masih dibaca. Halaman ini terbuka sendiri setelah selesai.</p></div>`;
     state.polling = setTimeout(() => openDoc(id), 1000);
     return;
   }
@@ -414,14 +456,14 @@ function renderDoc(d) {
     : ex.line_items || [];
   const groups = (LAYOUT[type] || []).map((g) => `<section class="group"><h3 class="group-title">${esc(g.title)}</h3>
       ${g.items.map(([p, en, idl, kind]) => fieldRow(p, en, idl, kind, ex, critical.has(p), corrected)).join("")}</section>`).join("");
-  const issues = (d.issues || []).map((i) => `<li class="${i.severity}" title="${esc(i.message)}">${esc(issueText(i, type))}
+  const issues = (d.issues || []).map((i) => `<li class="${i.severity}" title="${esc(i.message)}">${esc(issueText(i, type, d.values))}
       ${i.fields?.length ? ` <a data-goto="${esc(i.fields[0])}">Lihat kolomnya</a>` : ""}</li>`).join("");
   const u = d.usage || {};
   const qi = state.queue.findIndex((q) => q.id === d.id);
 
   view.innerHTML = `
     <div class="doc-head">
-      <button type="button" class="back" id="back">${state.fromQueue ? "Kembali ke antrean" : "Kembali"}</button>
+      <button type="button" class="back" id="back">${state.fromQueue ? "Kembali ke antrean" : "Kembali ke Coba dokumen"}</button>
       <span class="fname">${esc(d.filename)}</span>
       <span class="chip">${esc(DOC_TYPES[type] || type || "jenis tidak dikenal")}</span>
       <span class="chip ${auto ? "ok" : "warn"}">${auto ? "Disetujui otomatis" : "Perlu dicek"}</span>
@@ -439,7 +481,8 @@ function renderDoc(d) {
       </div>
       <div class="fields" id="fields">
         <div class="verdict">
-          <p class="reason">${esc(humanReason(d.route_reason, type))}.${d.status === "failed" ? ` Gagal diproses: ${esc(d.error)}` : ""}</p>
+          <p class="reason">${esc(humanReason(d.route_reason, type))}.${d.status === "failed" ? ` Dokumen ini gagal dibaca: ${esc(d.error)}` : ""}
+            ${!auto && !decided ? "Cocokkan kolom yang ditandai dengan scan, lalu pilih Setujui, Simpan koreksi, atau Tolak." : ""}</p>
           ${issues ? `<ul class="issues">${issues}</ul>` : ""}
         </div>
         ${groups}
@@ -458,8 +501,8 @@ function renderDoc(d) {
     </div>
     <div class="actionbar">
       <label class="reviewer" for="reviewer">Pemeriksa <input id="reviewer" value="${esc(localGet("reviewer") || "demo")}" autocomplete="off"></label>
-      ${qi >= 0 ? `<span class="navhint">${qi + 1} dari ${state.queue.length} di antrean. Tekan <kbd>j</kbd> atau <kbd>k</kbd> untuk pindah</span>` : ""}
-      <span class="result" id="result">${decided ? `Keputusan dicatat oleh ${esc(d.review.reviewer)}${d.review.changed_fields?.length ? `, ${d.review.changed_fields.length} kolom dikoreksi` : ""}.` : ""}</span>
+      ${qi >= 0 ? `<span class="navhint">${qi + 1} dari ${state.queue.length} di antrean. <kbd>j</kbd> berikutnya, <kbd>k</kbd> sebelumnya</span>` : ""}
+      <span class="result" id="result">${decided ? `${DECIDED[decided]} oleh ${esc(d.review.reviewer)}${d.review.changed_fields?.length ? `, ${d.review.changed_fields.length} kolom diubah` : ""}.` : ""}</span>
       <span class="spacer"></span>
       <button type="button" class="danger" id="reject" title="Pintasan: R">Tolak<span class="k">R</span></button>
       <button type="button" id="save" disabled title="Pintasan: S">Simpan koreksi<span class="k">S</span></button>
@@ -570,11 +613,13 @@ async function decide(action) {
   try {
     const r = await api("POST", `/review/${encodeURIComponent(d.id)}`, body);
     const changed = r.changed_fields.map((p) => fieldLabel(p.split(".").slice(0, p.startsWith("line_items") ? 1 : 2).join("."), d.doc_type));
-    const msg = action === "correct" ? `Koreksi tersimpan. Yang berubah: ${[...new Set(changed)].join(", ") || "tidak ada setelah dirapikan"}.`
-      : action === "approve" ? "Disetujui." : "Ditolak.";
-    toast(msg);
+    let msg = action === "correct"
+      ? (changed.length ? `Koreksi tersimpan. Yang berubah: ${[...new Set(changed.map(lowerFirst))].join(", ")}.` : "Tersimpan, tapi tidak ada nilai yang berubah setelah formatnya dirapikan.")
+      : `${DECIDED[action]}.`;
     await refreshQueueCount();
     const next = state.fromQueue ? state.queue[0] : null;
+    if (next) msg += " Membuka dokumen berikutnya di antrean.";
+    toast(msg);
     if (next) { location.hash = `doc-${next.id}`; return; }
     openDoc(d.id);
   } catch (e) {
@@ -643,7 +688,7 @@ function localSet(k, v) { try { localStorage.setItem(`docex.${k}`, v); } catch {
 // ---------------------------------------------------------------- boot
 (async function boot() {
   try { state.health = await api("GET", "/health"); } catch (e) {
-    document.body.insertAdjacentHTML("beforeend", `<p class="empty">Server API tidak bisa dihubungi: ${esc(e.message)}</p>`);
+    document.body.insertAdjacentHTML("beforeend", `<p class="empty">Server tidak bisa dihubungi (${esc(e.message)}). Muat ulang halaman ini sebentar lagi.</p>`);
     return;
   }
   const h = state.health;

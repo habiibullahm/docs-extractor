@@ -177,10 +177,18 @@ group names) are 11–12px with 0.06em letter spacing.
 
 ## Copy rules
 
-- Name things the way a finance admin would: "Needs review", "Auto-approved", "Not found", "Tax base · DPP".
-- Buttons say exactly what happens: "Approve", "Save 3 corrections", "Reject", "Run sample".
-- Errors say what went wrong and what to do: "This file is 14 MB. The limit is 10 MB." "Approach C is
-  not available on this deployment because no model key is set. Try approach A."
+- The interface speaks plain Indonesian, the way a finance admin talks: "Perlu dicek", "Disetujui otomatis",
+  "tidak ditemukan", "Dasar pajak · DPP". Official terms stay as the small note under a field.
+- Buttons say exactly what happens: "Setujui", "Simpan 3 koreksi", "Tolak".
+- Errors say what went wrong and what to do: "Ukuran file ini 14 MB. Batasnya 10 MB." "Metode ini belum
+  aktif di server ini karena kunci API belum dipasang. Coba metode A."
+- Reviewers read field labels, never schema paths: "NPWP penjual", not `seller.npwp`. Server reasons and
+  validation messages stay English and path-based (the repair prompt sends them to the model); the UI
+  rewrites them and keeps the original in the tooltip.
+- A failed check names the numbers it compared, in Indonesian format: "Subtotal dikurangi diskon ditambah
+  pajak hasilnya Rp 2.424.780, tapi total di dokumen Rp 1.733.900."
+- A document that needs review says what to do next. Status lines name who decided ("Dikoreksi oleh demo,
+  2 kolom diubah."), and after a decision in the queue the toast says the next document is opening.
 - No emoji in the interface.
 
 ## Accessibility
