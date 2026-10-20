@@ -30,7 +30,6 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       DOCEX_DATA_DIR: eval/ci_data
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || secrets.OPEN_API_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -41,11 +40,6 @@ jobs:
         run: |
           python -m eval.run --approach A --split dev --run-id ci_A
           python -m eval.check_regression eval/reports/ci_A/metrics.json eval/baselines/ci_A.json --max-drop 0.02
-      - name: Approach C (vision LLM) — only when the API key secret exists
-        if: env.OPENAI_API_KEY != ''
-        run: |
-          python -m eval.run --approach C --split dev --run-id ci_C --workers 6
-          python -m eval.check_regression eval/reports/ci_C/metrics.json eval/baselines/ci_C.json --max-drop 0.02
       - uses: actions/upload-artifact@v4
         if: always()
         with:

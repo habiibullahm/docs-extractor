@@ -6,7 +6,7 @@ silently accepted.
 
 > All data in this repository is synthetic or public (CORD). No real NPWP/NIK is used anywhere.
 
-**Live demo:** http://43.157.227.176:7860 (approach A, synthetic samples) · **Video:** _TODO_
+**Live demo:** http://43.157.227.176:7860 (approach A only, synthetic samples, UI in Indonesian) · **Video:** _TODO_
 
 ---
 
@@ -78,6 +78,9 @@ The API serves a small review desk at `/` (plain HTML, CSS and JavaScript in `we
 puts the scan next to the extracted fields, marks low-confidence and critical fields, and records the
 reviewer's decision. Corrections are stored with the model and prompt versions that produced the original
 output. Keyboard: `a` approve, `s` save correction, `r` reject, `j`/`k` next/previous, `/` edit the flagged field.
+The metrics page also exports every approved document (auto-approved, approved or corrected) as an Excel
+workbook or CSV files, with a sheet for documents and one for line items (`GET /export/approved`).
+The interface text is in plain Indonesian for the finance admins who use it; the code and docs are in English.
 
 ![Review workspace: scan on the left, extracted faktur pajak fields with confidence on the right](docs/screenshots/workspace.png)
 
@@ -253,7 +256,7 @@ python -m eval.run --approach A --split dev
 uvicorn docex.api.app:app --port 8000     # review UI: http://localhost:8000 , API docs: /docs
 
 # everything (API + UI, RQ worker, Postgres, Redis)
-cp .env.example .env    # optional: OPENAI_API_KEY for approaches B/C
+cp .env.example .env    # optional: OPENAI_API_KEY + DOCEX_ENABLE_LLM=true for B/C (paid)
 docker compose up --build   # review UI http://localhost:8000, API docs http://localhost:8000/docs
 ```
 
@@ -285,10 +288,17 @@ Human corrections are stored with the model and prompt version that produced the
 ### CI
 
 * `ci.yml` — unit tests; **eval regression** on a frozen 36-document subset (`eval/ci_data/`), failing if
-  field / document accuracy drops more than 2 points below `eval/baselines/`; approach C is included
-  automatically when the `OPENAI_API_KEY` secret exists; Docker build + smoke test; optional CORD eval.
-* `eval-full.yml` — manual: rebuild the dataset and evaluate A, B and C on the same runner.
+  field / document accuracy drops more than 2 points below `eval/baselines/`; no paid model API is
+  called in CI; Docker build + smoke test; optional CORD eval.
+* `eval-full.yml` — manual: rebuild the dataset and evaluate approach A (B and C are disabled, see Cost control).
 * `deploy.yml` — pushes the app to a Hugging Face Docker Space when `HF_TOKEN` is set.
+
+### Cost control
+
+Approaches B and C call a paid model API. They are **off by default**: an API key alone does nothing.
+`docex` only calls OpenAI or Anthropic when `DOCEX_ENABLE_LLM=true` is also set, and CI, `eval-full` and the
+public demo never set it. Before turning it on, set a monthly spend limit in the provider's billing settings.
+The B/C numbers in this README come from one `eval-full` run on 115 dev documents.
 
 ### Deploy
 
@@ -300,10 +310,10 @@ cd ~/docs-extractor && git pull && bash deploy/vps.sh   # PORT=8080 to change th
 ```
 
 `deploy/vps.sh` builds the image, restarts the `docex` container with a `docex-data` volume, waits for
-`/health` and prints the URL. It uses `sudo docker` when the user is not in the `docker` group. The public
-demo runs approach A, so it costs nothing. To enable B and C, put `OPENAI_API_KEY=...` in `~/docs-extractor/.env`
-on the server (the script passes it with `--env-file` and never prints it); this spends your API credits, and
-the API is rate-limited per IP. Clone with git on the server rather than copying files from Windows:
+`/health` and prints the URL. It uses `sudo docker` when the user is not in the `docker` group. The demo runs
+approach A only. B and C need both `OPENAI_API_KEY` and `DOCEX_ENABLE_LLM=true` in `~/docs-extractor/.env` on the
+server (the script passes the file with `--env-file` and never prints it; see Cost control); they spend API
+credits on every document, and the API is rate-limited per IP. Clone with git on the server rather than copying files from Windows:
 `.gitattributes` keeps shell scripts on LF line endings.
 
 `deploy.yml` can also push the same container to a Hugging Face Docker Space when the `HF_TOKEN` secret is set.

@@ -131,6 +131,7 @@ def test_openai_provider_strict_schema_and_parsing(monkeypatch):
             "usage": {"prompt_tokens": 1000, "completion_tokens": 100}})
 
     monkeypatch.setenv("OPENAI_API_KEY", "test")
+    monkeypatch.setenv("DOCEX_ENABLE_LLM", "true")  # the HTTP transport below is mocked; nothing is sent
     p = OpenAIProvider("gpt-4.1-mini", max_tokens=500)
     p._http = httpx.Client(base_url="https://api.openai.com/v1", transport=httpx.MockTransport(handler))
     r = p.complete_json("sys", ["hello", ImagePart(b"\xff\xd8")], {"type": "object"})

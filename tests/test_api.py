@@ -111,3 +111,11 @@ def test_export_approved_documents(client):
     assert wb.sheetnames == ["Dokumen", "Rincian barang"]
     assert wb["Dokumen"].max_row == 2 and wb["Rincian barang"]["E2"].value == "Kopi susu"
     assert client.get("/export/approved/count?doc_type=invoice").json()["documents"] == 0
+
+
+def test_key_alone_does_not_enable_paid_approaches(client, monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.delenv("DOCEX_ENABLE_LLM", raising=False)
+    assert client.get("/health").json()["available_approaches"] == ["A"]
+    r = client.post("/documents", files={"file": ("x.png", _png(), "image/png")}, data={"approach": "C"})
+    assert r.status_code == 400

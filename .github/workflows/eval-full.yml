@@ -13,14 +13,13 @@ on:
         description: "max documents per approach (empty = whole split)"
         default: ""
       approaches:
-        default: "A,B,C"
+        description: "A only. B/C call the paid OpenAI API and are disabled (see README, Cost control)"
+        default: "A"
 
 jobs:
   eval:
     runs-on: ubuntu-24.04
     timeout-minutes: 120
-    env:
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || secrets.OPEN_API_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

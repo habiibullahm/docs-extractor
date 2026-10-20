@@ -73,6 +73,7 @@ class AnthropicProvider:
 
     def __init__(self, model: str, effort: Optional[str] = "low", max_tokens: int = 16000,
                  fallbacks: Optional[str] = "default") -> None:
+        _require_paid_opt_in("Anthropic")
         import anthropic
 
         self._anthropic = anthropic
@@ -187,6 +188,7 @@ class OpenAIProvider(OpenAICompatibleProvider):
 
     def __init__(self, model: str, max_tokens: Optional[int] = None,
                  base_url: str = "https://api.openai.com/v1") -> None:
+        _require_paid_opt_in("OpenAI")
         key = os.environ.get("OPENAI_API_KEY")
         if not key:
             raise ProviderError("OPENAI_API_KEY is not set")
@@ -224,7 +226,26 @@ def get_llm(section: dict[str, Any], cfg: Optional[dict[str, Any]] = None) -> LL
     raise ValueError(f"unknown LLM provider {provider} (mock providers are injected in tests)")
 
 
+PAID_PROVIDERS = ("openai", "anthropic")
+
+
+def paid_llm_enabled() -> bool:
+    """Paid model APIs are off unless DOCEX_ENABLE_LLM=true, even when a key is present.
+
+    A key alone must never start spending: B and C stay off in the API, the UI and the eval
+    until someone opts in explicitly (and has set a spend limit with the provider).
+    """
+    return os.environ.get("DOCEX_ENABLE_LLM", "").lower() in ("1", "true", "yes")
+
+
+def _require_paid_opt_in(provider: str) -> None:
+    if not paid_llm_enabled():
+        raise ProviderError(f"{provider} calls are disabled; set DOCEX_ENABLE_LLM=true to allow paid API calls")
+
+
 def llm_available(section: dict[str, Any]) -> bool:
+    if section.get("provider", "openai") in PAID_PROVIDERS and not paid_llm_enabled():
+        return False
     if section.get("provider", "openai") == "openai":
         return bool(os.environ.get("OPENAI_API_KEY"))
     if section.get("provider") == "anthropic":
