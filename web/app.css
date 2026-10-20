@@ -318,6 +318,11 @@ pre.raw { margin: 0; max-height: 360px; overflow: auto; padding: 12px; border-ra
 #metrics { display: grid; gap: 40px; }
 .metrics-sec { display: grid; gap: 14px; }
 .metrics-sec h2 { font: 600 20px var(--font-display); }
+.export-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+a.btn { display: inline-block; text-decoration: none; }
+a.btn:hover { background: var(--surface-2); }
+a.btn.primary { background: var(--ink); border-color: var(--ink); color: var(--on-ink); }
+a.btn.primary:hover { background: var(--ink); filter: brightness(1.08); }
 .src { margin: 0; color: var(--fg-muted); font-size: 13px; }
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
 .stat { padding: 14px 16px; display: grid; gap: 2px; }

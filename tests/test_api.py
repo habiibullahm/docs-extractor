@@ -79,3 +79,35 @@ def test_ui_and_health_for_ui(client):
     if samples:
         img = client.get(f"/samples/{samples[0]['name']}/image")
         assert img.headers["content-type"] == "image/jpeg"
+
+
+def test_export_approved_documents(client):
+    ids = []
+    for _ in range(3):
+        r = client.post("/documents", files={"file": ("x.png", _png(), "image/png")}, data={"doc_type": "receipt"})
+        ids.append(r.json()["job_id"])
+    for i in ids:
+        _wait(client, i)
+    corrected, rejected, waiting = ids
+    items = [{"description": "Kopi susu", "quantity": "2", "unit_price": "18.000", "total": "36.000"}]
+    client.post(f"/review/{corrected}", json={"action": "correct", "reviewer": "nash",
+                                               "values": {"store_name": "Toko A", "total": "36.000", "line_items": items}})
+    client.post(f"/review/{rejected}", json={"action": "reject"})
+
+    c = client.get("/export/approved/count").json()
+    assert c["documents"] == 1 and c["line_items"] == 1 and c["by_decision"] == {"corrected": 1}
+
+    r = client.get("/export/approved?format=csv")
+    assert r.headers["content-type"].startswith("text/csv") and "attachment" in r.headers["content-disposition"]
+    lines = r.content.decode("utf-8-sig").splitlines()
+    assert len(lines) == 2 and corrected in lines[1] and "Toko A" in lines[1] and "corrected" in lines[1]
+    assert waiting not in r.text and rejected not in r.text
+    items_csv = client.get("/export/approved?format=csv&part=items").content.decode("utf-8-sig").splitlines()
+    assert len(items_csv) == 2 and "Kopi susu" in items_csv[1]
+
+    from openpyxl import load_workbook
+
+    wb = load_workbook(io.BytesIO(client.get("/export/approved?format=xlsx").content))
+    assert wb.sheetnames == ["Dokumen", "Rincian barang"]
+    assert wb["Dokumen"].max_row == 2 and wb["Rincian barang"]["E2"].value == "Kopi susu"
+    assert client.get("/export/approved/count?doc_type=invoice").json()["documents"] == 0
