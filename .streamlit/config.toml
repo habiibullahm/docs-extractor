@@ -1,8 +1,0 @@
-[server]
-maxUploadSize = 10
-
-[client]
-toolbarMode = "minimal"
-
-[browser]
-gatherUsageStats = false

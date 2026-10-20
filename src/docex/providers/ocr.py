@@ -1,10 +1,14 @@
 """OCR providers (local, open-source): Tesseract and RapidOCR (PaddleOCR models on ONNX)."""
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 import numpy as np
+
+# Tesseract starts one OpenMP thread per core; concurrent pages then thrash (50 s+ per page).
+os.environ.setdefault("OMP_THREAD_LIMIT", "1")
 
 
 @dataclass

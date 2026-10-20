@@ -66,3 +66,16 @@ def test_llm_approach_unavailable_without_key(client, monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     r = client.post("/documents", files={"file": ("x.png", _png(), "image/png")}, data={"approach": "C"})
     assert r.status_code == 400
+
+
+def test_ui_and_health_for_ui(client):
+    r = client.get("/")
+    assert r.status_code == 200 and "docex review desk" in r.text
+    assert client.get("/web/app.js").status_code == 200
+    h = client.get("/health").json()
+    assert h["available_approaches"][0] == "A"
+    assert "seller.npwp" in h["critical_fields"]["faktur_pajak"]
+    samples = client.get("/samples").json()
+    if samples:
+        img = client.get(f"/samples/{samples[0]['name']}/image")
+        assert img.headers["content-type"] == "image/jpeg"

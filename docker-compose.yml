@@ -1,4 +1,4 @@
-# docker compose up  ->  UI http://localhost:7860 , API http://localhost:8000/docs
+# docker compose up  ->  review UI http://localhost:8000 , API docs http://localhost:8000/docs
 services:
   postgres:
     image: postgres:16-alpine
@@ -45,14 +45,6 @@ services:
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
 
-  ui:
-    build: .
-    command: streamlit run ui/app.py --server.port 7860 --server.address 0.0.0.0 --server.headless true
-    environment:
-      DOCEX_API_URL: http://api:8000
-    ports: ["7860:7860"]
-    healthcheck: {disable: true}
-    depends_on: [api]
 
 volumes:
   pgdata:

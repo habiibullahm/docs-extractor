@@ -50,7 +50,7 @@ flowchart LR
     S -->|score ≥ threshold| AA[auto-approved]
     S -->|below / inconsistent| RV[review queue]
     AA & RV --> DB[(Postgres / SQLite<br/>results + model & prompt versions)]
-    RV --> UI[Streamlit review UI<br/>image left, fields right]
+    RV --> UI[review desk web UI<br/>scan left, fields right]
     UI -->|POST /review/id| DB
     DB -->|export_corrections| DS[(new eval / training data)]
 ```
@@ -67,9 +67,23 @@ flowchart LR
 | Validate (rules in `configs/validation.yaml`, tax rules in `configs/tax_rules.yaml`) | `src/docex/validate/rules.py` |
 | Score & route | `src/docex/scoring/score.py` |
 | API / worker / DB | `src/docex/api/`, `src/docex/worker/`, `src/docex/db/` |
-| Review UI | `ui/app.py` |
+| Review UI (spec in `design.md`) | `web/` |
 | Synthetic data | `synth/` |
 | Evaluation | `eval/` |
+
+## Review UI
+
+The API serves a small review desk at `/` (plain HTML, CSS and JavaScript in `web/`, specified in
+[`design.md`](design.md)). Documents that score below the threshold land in the review queue. The workspace
+puts the scan next to the extracted fields, marks low-confidence and critical fields, and records the
+reviewer's decision. Corrections are stored with the model and prompt versions that produced the original
+output. Keyboard: `a` approve, `s` save correction, `r` reject, `j`/`k` next/previous, `/` edit the flagged field.
+
+![Review workspace: scan on the left, extracted faktur pajak fields with confidence on the right](docs/screenshots/workspace.png)
+
+| Review queue | Try a document |
+|---|---|
+| ![Review queue sorted by score](docs/screenshots/queue.png) | ![Sample gallery and upload](docs/screenshots/try.png) |
 
 ## Results
 
@@ -218,18 +232,17 @@ if a reviewer costs Rp 1,000 per document, raising STP from 5% to 70% saves far 
 ```bash
 # local dev
 python -m venv .venv && . .venv/bin/activate
-pip install -e ".[api,ui,eval,synth,dev]" && playwright install chromium
+pip install -e ".[api,eval,synth,dev]" && playwright install chromium
 sudo apt-get install tesseract-ocr tesseract-ocr-ind     # or brew install tesseract tesseract-lang
 
 python -m synth.build --per-type 200      # 600 synthetic documents + ground truth + manifest/split
 pytest -q
 python -m eval.run --approach A --split dev
-uvicorn docex.api.app:app --port 8000 &   # API docs: http://localhost:8000/docs
-streamlit run ui/app.py                   # review UI: http://localhost:8501
+uvicorn docex.api.app:app --port 8000     # review UI: http://localhost:8000 , API docs: /docs
 
-# everything (API, RQ worker, Postgres, Redis, UI)
+# everything (API + UI, RQ worker, Postgres, Redis)
 cp .env.example .env    # optional: OPENAI_API_KEY for approaches B/C
-docker compose up --build   # UI http://localhost:7860, API http://localhost:8000/docs
+docker compose up --build   # review UI http://localhost:8000, API docs http://localhost:8000/docs
 ```
 
 API:
@@ -241,6 +254,7 @@ API:
 | GET | `/review/queue` | documents routed to review |
 | POST | `/review/{id}` | `{"action": "approve" \| "correct" \| "reject", "values": {...}}` |
 | GET | `/metrics` | live counts, auto-approve rate, latency, cost, reviews + latest offline eval |
+| GET | `/` | review UI: try a sample or upload, review queue, workspace, metrics |
 
 Human corrections are stored with the model and prompt version that produced the original extraction, and
 `python -m docex.db.export_corrections` turns them into new labeled documents for evaluation and training.
@@ -265,7 +279,7 @@ Human corrections are stored with the model and prompt version that produced the
 
 ### Deploy
 
-The demo runs as a single container (API + Streamlit, `deploy/start.sh`) on Hugging Face Spaces with synthetic
+The demo runs as a single container (the API also serves the review UI, `deploy/start.sh`) on Hugging Face Spaces with synthetic
 samples. Add the `HF_TOKEN` secret (write access) to the GitHub repository and push to `main`. By default the
 public demo uses approach A, so it costs nothing; set the repository variable `DEMO_ENABLE_LLM=true` to copy
 `OPENAI_API_KEY` into the Space and enable approach C (this spends your API credits; the API is rate-limited
@@ -281,6 +295,6 @@ src/docex/    ingest, preprocess, classify, extract, normalize, validate, scorin
               providers, api, worker, db, schemas, observability, pipeline
 synth/        synthetic generator + 7 HTML templates + degradations
 eval/         harness, metrics, reports, CI subset and baselines
-ui/           Streamlit review UI
+web/          review UI (plain HTML/CSS/JS, served by the API; design in design.md)
 tests/        unit, pipeline (mock LLM), API, dataset tests
 ```

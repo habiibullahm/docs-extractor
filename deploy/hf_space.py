@@ -7,7 +7,7 @@ from pathlib import Path
 from huggingface_hub import HfApi
 
 ROOT = Path(__file__).resolve().parents[1]
-INCLUDE = ["Dockerfile", ".dockerignore", "pyproject.toml", "src", "configs", "prompts", "ui", ".streamlit",
+INCLUDE = ["Dockerfile", ".dockerignore", "pyproject.toml", "src", "configs", "prompts", "web",
            "demo_samples", "deploy/start.sh", "eval/reports/summary.json"]
 
 SPACE_README = """---

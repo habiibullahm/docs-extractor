@@ -6,6 +6,7 @@ GET  /documents/{id}/preview   first page as PNG (for the review UI)
 GET  /review/queue       documents routed to human review
 POST /review/{id}        approve / correct / reject (corrections become new eval data)
 GET  /metrics            live operational metrics + latest offline eval summary
+GET  /                   review UI (static app in web/, see design.md)
 """
 from __future__ import annotations
 
@@ -17,14 +18,15 @@ from typing import Any, Literal, Optional
 
 import cv2
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import Response
+from fastapi.responses import FileResponse, Response
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 from sqlalchemy import func, select
 
-from docex.config import DATA_DIR, ROOT, pipeline_config
+from docex.config import DATA_DIR, ROOT, pipeline_config, validation_config
 from docex.db.models import Document, Extraction, Review, get_document, init_db, review_queue, session
 from docex.observability import configure_logging, get_logger
 from docex.preprocess.image import load_pages
@@ -85,7 +87,15 @@ def _doc_out(doc: Document) -> dict[str, Any]:
 
 @app.get("/health")
 def health() -> dict[str, Any]:
-    return {"ok": True, "default_approach": default_approach()}
+    from docex.scoring.score import default_threshold
+
+    sections = {"A": None, "B": CFG["llm"], "C": CFG["vlm"]}
+    return {"ok": True, "default_approach": default_approach(),
+            "available_approaches": [a for a, s in sections.items() if s is None or llm_available(s)],
+            "thresholds": {a: default_threshold(a, CFG["scoring"]) for a in sections},
+            "critical_fields": validation_config()["critical_fields"],
+            "models": {"B": CFG["llm"]["model"], "C": CFG["vlm"]["model"]},
+            "max_upload_mb": LIMITS["max_upload_mb"]}
 
 
 @app.post("/documents", status_code=202)
@@ -158,6 +168,7 @@ def list_docs(limit: int = 50) -> list[dict[str, Any]]:
 def get_queue(limit: int = 50) -> list[dict[str, Any]]:
     with session() as s:
         return [{"id": d.id, "filename": d.filename, "doc_type": d.latest.doc_type, "score": d.latest.score,
+                 "approach": d.approach,
                  "route_reason": d.latest.result.get("route_reason"), "created_at": d.created_at.isoformat()}
                 for d in review_queue(s, limit)]
 
@@ -201,7 +212,8 @@ def submit_review(doc_id: str, body: ReviewIn) -> dict[str, Any]:
             except ValueError as e:
                 raise HTTPException(422, f"invalid corrected values: {e}") from e
             values.pop("doc_type", None)
-            changed = _diff(ex.result.get("values") or {}, values)
+            before = {k: v for k, v in (ex.result.get("values") or {}).items() if k != "doc_type"}
+            changed = _diff(before, values)
         s.add(Review(document_id=doc_id, extraction_id=ex.id, action=body.action, reviewer=body.reviewer[:100],
                      corrected_values=values, changed_fields=changed, notes=body.notes))
     log.info("review_submitted", document_id=doc_id, action=body.action, changed_fields=changed)
@@ -251,6 +263,20 @@ def samples() -> list[dict[str, Any]]:
     return json.loads((SAMPLES_DIR / "index.json").read_text())
 
 
+@app.get("/samples/{name}/image")
+def sample_image(name: str) -> Response:
+    index = {x["name"]: x for x in samples()}
+    if name not in index:
+        raise HTTPException(404, "unknown sample")
+    pages, _ = load_pages((SAMPLES_DIR / index[name]["file"]).read_bytes(), dpi=60)
+    img = pages[0]
+    scale = 360 / img.shape[1]
+    if scale < 1:
+        img = cv2.resize(img, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
+    ok, buf = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 80])
+    return Response(buf.tobytes(), media_type="image/jpeg", headers={"Cache-Control": "public, max-age=86400"})
+
+
 @app.post("/samples/{name}", status_code=202)
 @limiter.limit(LIMITS["rate_limit"])
 def run_sample(request: Request, name: str, approach: Optional[Literal["A", "B", "C"]] = None) -> dict[str, Any]:
@@ -263,3 +289,15 @@ def run_sample(request: Request, name: str, approach: Optional[Literal["A", "B",
     if approach in ("B", "C") and not llm_available(CFG["llm" if approach == "B" else "vlm"]):
         raise HTTPException(400, f"approach {approach} is not available on this deployment")
     return _create(data, path.name, sniff(data) or "image/jpeg", approach, None)
+
+
+# ------------------------------------------------------------------ review UI
+
+WEB_DIR = Path(os.environ.get("DOCEX_WEB_DIR", ROOT / "web"))
+
+if WEB_DIR.exists():
+    app.mount("/web", StaticFiles(directory=WEB_DIR), name="web")
+
+    @app.get("/", include_in_schema=False)
+    def index() -> FileResponse:
+        return FileResponse(WEB_DIR / "index.html")

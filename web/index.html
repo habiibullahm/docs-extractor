@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>docex review desk</title>
+<meta name="description" content="Extract and review Indonesian faktur pajak, invoices and receipts.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='4' y='2' width='24' height='28' rx='3' fill='%233B3FA8'/%3E%3Cpath d='M10 10h12M10 16h12M10 22h7' stroke='white' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600&family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="/web/app.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="#extract">docex <span>review desk</span></a>
+  <nav class="nav" aria-label="Main">
+    <a href="#extract" data-view="extract">Try a document</a>
+    <a href="#queue" data-view="queue">Review queue <span class="count" id="queue-count" hidden></span></a>
+    <a href="#metrics" data-view="metrics">Metrics</a>
+  </nav>
+  <div class="deploy" id="deploy-info"></div>
+</header>
+
+<main id="app">
+  <section class="view" id="view-extract" hidden>
+    <div class="pane-head">
+      <h1>Try a document</h1>
+      <p class="lede">Run a synthetic faktur pajak, invoice or receipt through the pipeline, or upload your own scan.
+        The result opens in the review workspace.</p>
+    </div>
+
+    <div class="try-controls">
+      <fieldset class="segmented" id="approach-picker">
+        <legend>Approach</legend>
+      </fieldset>
+      <p class="approach-note" id="approach-note"></p>
+    </div>
+
+    <div class="try-grid">
+      <div>
+        <h2 class="label">Synthetic samples</h2>
+        <div class="samples" id="samples"></div>
+      </div>
+      <div class="upload-col">
+        <h2 class="label">Upload</h2>
+        <label class="drop" id="drop" for="file-input">
+          <input type="file" id="file-input" accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/*">
+          <strong>Drop a PDF or image here</strong>
+          <span>or choose a file · PDF, PNG, JPG, WEBP up to <span id="max-mb">10</span> MB</span>
+        </label>
+        <p class="privacy">Do not upload real documents that contain someone's NPWP or NIK. This demo stores uploads.</p>
+        <div class="progress" id="progress" hidden></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="view" id="view-queue" hidden>
+    <div class="pane-head">
+      <h1>Review queue</h1>
+      <p class="lede">Documents scoring below their approach's threshold, lowest score first.
+        Press <kbd>Enter</kbd> on a row to open it.</p>
+    </div>
+    <div class="table-wrap">
+      <table class="queue">
+        <thead><tr><th>File</th><th>Type</th><th>Score</th><th>Why it is here</th><th>Received</th></tr></thead>
+        <tbody id="queue-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="view view-doc" id="view-doc" hidden></section>
+
+  <section class="view" id="view-metrics" hidden>
+    <div class="pane-head">
+      <h1>Metrics</h1>
+    </div>
+    <div id="metrics"></div>
+  </section>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<script src="/web/app.js"></script>
+</body>
+</html>
