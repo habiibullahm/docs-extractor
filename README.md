@@ -6,7 +6,7 @@ silently accepted.
 
 > All data in this repository is synthetic or public (CORD). No real NPWP/NIK is used anywhere.
 
-**Live demo:** http://43.157.227.176:7860 (approach A, synthetic samples) · **Video:** _TODO_
+**Live demo:** http://43.157.227.176:7860 (approaches A, B and C, synthetic samples, UI in Indonesian) · **Video:** _TODO_
 
 ---
 
@@ -78,6 +78,9 @@ The API serves a small review desk at `/` (plain HTML, CSS and JavaScript in `we
 puts the scan next to the extracted fields, marks low-confidence and critical fields, and records the
 reviewer's decision. Corrections are stored with the model and prompt versions that produced the original
 output. Keyboard: `a` approve, `s` save correction, `r` reject, `j`/`k` next/previous, `/` edit the flagged field.
+The metrics page also exports every approved document (auto-approved, approved or corrected) as an Excel
+workbook or CSV files, with a sheet for documents and one for line items (`GET /export/approved`).
+The interface text is in plain Indonesian for the finance admins who use it; the code and docs are in English.
 
 ![Review workspace: scan on the left, extracted faktur pajak fields with confidence on the right](docs/screenshots/workspace.png)
 
@@ -300,10 +303,10 @@ cd ~/docs-extractor && git pull && bash deploy/vps.sh   # PORT=8080 to change th
 ```
 
 `deploy/vps.sh` builds the image, restarts the `docex` container with a `docex-data` volume, waits for
-`/health` and prints the URL. It uses `sudo docker` when the user is not in the `docker` group. The public
-demo runs approach A, so it costs nothing. To enable B and C, put `OPENAI_API_KEY=...` in `~/docs-extractor/.env`
-on the server (the script passes it with `--env-file` and never prints it); this spends your API credits, and
-the API is rate-limited per IP. Clone with git on the server rather than copying files from Windows:
+`/health` and prints the URL. It uses `sudo docker` when the user is not in the `docker` group. Without a key
+only approach A runs, at no API cost. To enable B and C, put `OPENAI_API_KEY=...` in `~/docs-extractor/.env`
+on the server (the script passes it with `--env-file` and never prints it). The public demo has B and C on, so
+each B/C run spends API credits (about $0.002 to $0.004 per document); the API is rate-limited per IP. Clone with git on the server rather than copying files from Windows:
 `.gitattributes` keeps shell scripts on LF line endings.
 
 `deploy.yml` can also push the same container to a Hugging Face Docker Space when the `HF_TOKEN` secret is set.
