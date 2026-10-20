@@ -26,7 +26,7 @@ dependencies = [
 
 [project.optional-dependencies]
 ocr-rapid = ["rapidocr-onnxruntime>=1.2"]
-api = ["fastapi>=0.110", "uvicorn[standard]>=0.29", "python-multipart>=0.0.9", "slowapi>=0.1.9", "rq>=1.16", "redis>=5", "psycopg[binary]>=3.1"]
+api = ["fastapi>=0.110", "openpyxl>=3.1", "uvicorn[standard]>=0.29", "python-multipart>=0.0.9", "slowapi>=0.1.9", "rq>=1.16", "redis>=5", "psycopg[binary]>=3.1"]
 synth = ["faker>=24", "playwright>=1.44"]
 eval = ["matplotlib>=3.8", "pandas>=2.2"]
 cord = ["datasets>=2.19"]

@@ -251,6 +251,48 @@ def metrics() -> dict[str, Any]:
     }
 
 
+# ------------------------------------------------------------------ export
+
+DocTypeParam = Optional[Literal["faktur_pajak", "invoice", "receipt"]]
+
+
+@app.get("/export/approved/count")
+def export_count(doc_type: DocTypeParam = None) -> dict[str, Any]:
+    from docex.api.export import approved
+
+    with session() as s:
+        rows = approved(s, doc_type)
+    by: dict[str, int] = {}
+    for r in rows:
+        by[r["meta"]["decision"]] = by.get(r["meta"]["decision"], 0) + 1
+    return {"documents": len(rows), "line_items": sum(len(r["items"]) for r in rows), "by_decision": by}
+
+
+@app.get("/export/approved")
+def export_approved(format: Literal["xlsx", "csv"] = "xlsx", part: Literal["documents", "items"] = "documents",
+                    doc_type: DocTypeParam = None) -> Response:
+    """Approved documents (auto-approved, approved or corrected by a reviewer).
+
+    xlsx: one workbook with a "Dokumen" sheet and a "Rincian barang" sheet.
+    csv: one table per request; `part=items` returns the line items.
+    """
+    from datetime import date
+
+    from docex.api.export import ITEM_COLS, approved, tables, to_csv, to_xlsx
+
+    with session() as s:
+        cols, doc_rows, item_rows = tables(approved(s, doc_type))
+    stem = f"docex-disetujui-{date.today().isoformat()}{f'-{doc_type}' if doc_type else ''}"
+    if format == "xlsx":
+        body, media, name = (to_xlsx(cols, doc_rows, item_rows),
+                             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", f"{stem}.xlsx")
+    elif part == "items":
+        body, media, name = to_csv(ITEM_COLS, item_rows), "text/csv; charset=utf-8", f"{stem}-rincian.csv"
+    else:
+        body, media, name = to_csv(cols, doc_rows), "text/csv; charset=utf-8", f"{stem}.csv"
+    return Response(body, media_type=media, headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
 # ------------------------------------------------------------------ demo helpers
 
 SAMPLES_DIR = Path(os.environ.get("DOCEX_SAMPLES_DIR", ROOT / "demo_samples"))

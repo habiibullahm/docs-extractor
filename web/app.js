@@ -630,15 +630,34 @@ async function decide(action) {
 }
 
 // ---------------------------------------------------------------- metrics
+// Download of approved documents: GET /export/approved (xlsx has a sheet for documents and one for line items).
+function exportSection(ex) {
+  if (!ex) return "";
+  const by = ex.by_decision || {};
+  const parts = [["auto_approved", "disetujui otomatis"], ["approved", "disetujui pemeriksa"], ["corrected", "dikoreksi pemeriksa"]]
+    .filter(([k]) => by[k]).map(([k, label]) => `${by[k]} ${label}`);
+  const body = ex.documents
+    ? `<p class="src">${ex.documents} dokumen siap diunduh (${parts.join(", ")}), dengan ${ex.line_items} baris barang.
+        Dokumen yang ditolak atau masih di antrean cek tidak ikut. Untuk dokumen yang dikoreksi, yang diunduh adalah nilai hasil koreksi.</p>
+      <div class="export-actions">
+        <a class="btn primary" href="/export/approved?format=xlsx" download>Unduh Excel</a>
+        <a class="btn" href="/export/approved?format=csv" download>CSV dokumen</a>
+        <a class="btn" href="/export/approved?format=csv&part=items" download>CSV rincian barang</a>
+      </div>
+      <p class="src">File Excel berisi dua sheet: "Dokumen" (satu baris per dokumen) dan "Rincian barang" (satu baris per barang). Keduanya bisa dicocokkan lewat kolom <code>document_id</code>.</p>`
+    : `<p class="src">Belum ada dokumen yang disetujui. Setujui atau koreksi dokumen di Antrean cek, nanti datanya bisa diunduh di sini.</p>`;
+  return `<section class="metrics-sec"><h2>Unduh data yang sudah disetujui</h2>${body}</section>`;
+}
 async function loadMetrics() {
   const box = $("#metrics");
   let m;
-  try { m = await api("GET", "/metrics"); } catch (e) { box.innerHTML = `<p class="empty">${esc(e.message)}</p>`; return; }
+  let ex = null;
+  try { [m, ex] = await Promise.all([api("GET", "/metrics"), api("GET", "/export/approved/count").catch(() => null)]); } catch (e) { box.innerHTML = `<p class="empty">${esc(e.message)}</p>`; return; }
   const pct = (v) => (v == null ? "–" : `${(v * 100).toLocaleString("id-ID", { maximumFractionDigits: 1 })}%`);
   const rv = m.reviews || {};
   const stat = (v, k) => `<div class="stat"><span class="v">${v}</span><span class="k">${k}</span></div>`;
   const off = m.offline_eval?.approaches || [];
-  box.innerHTML = `
+  box.innerHTML = `${exportSection(ex)}
     <section class="metrics-sec"><h2>Server ini</h2>
       <p class="src">Angka langsung dari dokumen yang diproses server ini sejak dinyalakan. Data demo bisa hilang saat server dimulai ulang.</p>
       <div class="stats">

@@ -266,6 +266,7 @@ API:
 | GET | `/review/queue` | documents routed to review |
 | POST | `/review/{id}` | `{"action": "approve" \| "correct" \| "reject", "values": {...}}` |
 | GET | `/metrics` | live counts, auto-approve rate, latency, cost, reviews + latest offline eval |
+| GET | `/export/approved` | approved documents (auto-approved, approved or corrected; corrected values win) as `format=xlsx` (sheets `Dokumen` and `Rincian barang`) or `format=csv` (`part=documents` or `part=items`), optional `doc_type`; `/export/approved/count` for the totals |
 | GET | `/` | review UI: try a sample or upload, review queue, workspace, metrics |
 
 Human corrections are stored with the model and prompt version that produced the original extraction, and
