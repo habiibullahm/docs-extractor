@@ -1,0 +1,13 @@
+{
+ "run_id": "exp_psm3_train60",
+ "approach": "A",
+ "split": "train",
+ "n_docs": 60,
+ "dataset_version": "ca095be1085d07f7",
+ "threshold": 0.77,
+ "overrides": {},
+ "oracle_type": false,
+ "wall_time_s": 46.7,
+ "workers": 4,
+ "created": "2026-10-20 13:05:17"
+}
