@@ -1,0 +1,37 @@
+name: publish-eval
+
+# Manual: copy the eval-<split> artifact of an earlier eval-full run onto the eval-results branch,
+# so the reports can be reviewed and merged into eval/reports/ without re-running the paid evals.
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "eval-full run id"
+        required: true
+      split:
+        default: dev
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: eval-${{ inputs.split }}
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+          path: eval/reports/
+      - name: Push to eval-results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B eval-results
+          git add -f eval/reports/
+          git commit -m "eval reports from run ${{ inputs.run_id }} (${{ inputs.split }})"
+          git push -f origin eval-results
