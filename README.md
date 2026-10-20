@@ -6,7 +6,7 @@ silently accepted.
 
 > All data in this repository is synthetic or public (CORD). No real NPWP/NIK is used anywhere.
 
-**Live demo:** _pending deploy (see [Deploy](#deploy))_ · **Video:** _TODO_
+**Live demo:** http://43.157.227.176:7860 (approach A, synthetic samples) · **Video:** _TODO_
 
 ---
 
@@ -279,11 +279,21 @@ Human corrections are stored with the model and prompt version that produced the
 
 ### Deploy
 
-The demo runs as a single container (the API also serves the review UI, `deploy/start.sh`) on Hugging Face Spaces with synthetic
-samples. Add the `HF_TOKEN` secret (write access) to the GitHub repository and push to `main`. By default the
-public demo uses approach A, so it costs nothing; set the repository variable `DEMO_ENABLE_LLM=true` to copy
-`OPENAI_API_KEY` into the Space and enable approach C (this spends your API credits; the API is rate-limited
-per IP).
+The demo runs as a single container (the API also serves the review UI, `deploy/start.sh`) on a VPS with
+synthetic samples. On the server, clone the repository and run:
+
+```bash
+cd ~/docs-extractor && git pull && bash deploy/vps.sh   # PORT=8080 to change the port
+```
+
+`deploy/vps.sh` builds the image, restarts the `docex` container with a `docex-data` volume, waits for
+`/health` and prints the URL. It uses `sudo docker` when the user is not in the `docker` group. The public
+demo runs approach A, so it costs nothing. To enable B and C, put `OPENAI_API_KEY=...` in `~/docs-extractor/.env`
+on the server (the script passes it with `--env-file` and never prints it); this spends your API credits, and
+the API is rate-limited per IP. Clone with git on the server rather than copying files from Windows:
+`.gitattributes` keeps shell scripts on LF line endings.
+
+`deploy.yml` can also push the same container to a Hugging Face Docker Space when the `HF_TOKEN` secret is set.
 
 ## Repository layout
 
