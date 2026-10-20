@@ -4,13 +4,35 @@
   {
    "approach": "A \u00b7 OCR + regex",
    "n": 115,
-   "field_accuracy": 0.8938,
-   "doc_accuracy": 0.7391,
-   "items_f1": 0.8385,
+   "field_accuracy": 0.9049,
+   "doc_accuracy": 0.713,
+   "items_f1": 0.8558,
    "recommended_threshold": 0.77,
-   "stp_at_threshold": 0.043478260869565216,
-   "cost_usd_per_1000": 0.053,
-   "latency_p50_s": 3.53
+   "stp_at_threshold": 0.02608695652173913,
+   "cost_usd_per_1000": 0.033,
+   "latency_p50_s": 2.45
+  },
+  {
+   "approach": "B \u00b7 OCR + LLM",
+   "n": 115,
+   "field_accuracy": 0.954,
+   "doc_accuracy": 0.7913,
+   "items_f1": 0.9777,
+   "recommended_threshold": null,
+   "stp_at_threshold": null,
+   "cost_usd_per_1000": 2.454,
+   "latency_p50_s": 7.71
+  },
+  {
+   "approach": "C \u00b7 Vision LLM",
+   "n": 115,
+   "field_accuracy": 0.9818,
+   "doc_accuracy": 0.9478,
+   "items_f1": 0.9684,
+   "recommended_threshold": null,
+   "stp_at_threshold": null,
+   "cost_usd_per_1000": 3.686,
+   "latency_p50_s": 8.26
   }
  ]
 }

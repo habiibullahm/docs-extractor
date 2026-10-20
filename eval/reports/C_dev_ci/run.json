@@ -1,0 +1,13 @@
+{
+ "run_id": "C_dev_ci",
+ "approach": "C",
+ "split": "dev",
+ "n_docs": 115,
+ "dataset_version": "45bd8612abcc784c",
+ "threshold": 0.9,
+ "overrides": {},
+ "oracle_type": false,
+ "wall_time_s": 124.2,
+ "workers": 8,
+ "created": "2026-10-20 18:13:41"
+}
