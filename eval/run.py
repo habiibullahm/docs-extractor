@@ -112,7 +112,8 @@ def main(argv: Optional[list[str]] = None) -> Path:
         section = cfg["llm" if args.approach == "B" else "vlm"]
         if not llm_available(section):
             sys.exit(f"approach {args.approach} needs credentials for provider '{section['provider']}' "
-                     "(paid APIs need DOCEX_ENABLE_LLM=true plus OPENAI_API_KEY, or ANTHROPIC_API_KEY with provider: anthropic)")
+                     "(hosted APIs need DOCEX_ENABLE_LLM=true plus GEMINI_API_KEY, or OPENAI_API_KEY / ANTHROPIC_API_KEY "
+                     "with provider: openai / anthropic)")
 
     docs = select_docs(args.split, args.limit, args.types.split(",") if args.types else None,
                        args.sources.split(",") if args.sources else None)

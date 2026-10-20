@@ -1,6 +1,8 @@
 """Pipeline tests with a mocked LLM (no network) and the real local OCR path."""
 import json
 import io
+
+import pytest
 from PIL import Image, ImageDraw
 
 from docex.ingest.cord import cord_to_receipt
@@ -139,3 +141,92 @@ def test_openai_provider_strict_schema_and_parsing(monkeypatch):
     assert seen["body"]["response_format"]["json_schema"]["strict"] is True
     assert seen["body"]["messages"][1]["content"][1]["type"] == "image_url"
     assert r.usage.cost_usd > 0
+
+
+def _gemini(monkeypatch, handler, **kw):
+    import httpx
+
+    from docex.providers.llm import GeminiProvider
+
+    monkeypatch.setenv("GEMINI_API_KEY", "test")
+    monkeypatch.setenv("DOCEX_ENABLE_LLM", "true")  # the HTTP transport below is mocked; nothing is sent
+    sleeps = []
+    p = GeminiProvider("gemini-flash-latest", max_tokens=500, sleep=sleeps.append, **kw)
+    p._http = httpx.Client(base_url=p._http.base_url, headers=p._http.headers, transport=httpx.MockTransport(handler))
+    return p, sleeps
+
+
+_OK = {"choices": [{"finish_reason": "stop", "message": {"content": '{"x": 1}', "refusal": None}}],
+       "usage": {"prompt_tokens": 1000, "completion_tokens": 100}}
+
+
+def test_gemini_provider_request_and_free_cost(monkeypatch):
+    import httpx
+
+    from docex.providers.llm import ImagePart
+
+    seen = {}
+
+    def handler(request):
+        seen["url"] = str(request.url)
+        seen["auth"] = request.headers["authorization"]
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(200, json=_OK)
+
+    p, _ = _gemini(monkeypatch, handler, min_interval_s=0)
+    r = p.complete_json("sys", ["hello", ImagePart(b"\xff\xd8")], {"type": "object"})
+    assert r.data == {"x": 1}
+    assert seen["url"].endswith("/v1beta/openai/chat/completions") and seen["auth"] == "Bearer test"
+    assert seen["body"]["response_format"]["json_schema"]["strict"] is False
+    assert seen["body"]["messages"][1]["content"][1]["image_url"]["url"].startswith("data:image/jpeg;base64,")
+    assert r.usage.cost_usd == 0.0  # free tier
+
+
+def test_gemini_retries_429_then_reports_quota(monkeypatch):
+    import httpx
+
+    from docex.providers.llm import ProviderError
+
+    codes = iter([429, 200])
+    p, sleeps = _gemini(monkeypatch, lambda req: httpx.Response(next(codes), json=_OK, headers={"retry-after": "7"}),
+                        min_interval_s=0)
+    assert p.complete_json("sys", ["x"], {"type": "object"}).data == {"x": 1}
+    assert 7.0 in sleeps
+
+    calls = []
+
+    def always_429(req):
+        calls.append(1)
+        return httpx.Response(429, json={"error": {"message": "quota"}})
+
+    p, _ = _gemini(monkeypatch, always_429, min_interval_s=0, max_retries=2)
+    with pytest.raises(ProviderError, match="nothing billed"):
+        p.complete_json("sys", ["x"], {"type": "object"})
+    assert len(calls) == 3
+
+
+def test_gemini_spaces_requests(monkeypatch):
+    import httpx
+
+    from docex.providers.llm import GeminiProvider
+
+    monkeypatch.setattr(GeminiProvider, "_next_slot", 0.0)
+    p, sleeps = _gemini(monkeypatch, lambda req: httpx.Response(200, json=_OK), min_interval_s=6)
+    p.complete_json("sys", ["x"], {"type": "object"})
+    p.complete_json("sys", ["x"], {"type": "object"})
+    assert len(sleeps) == 1 and 5.0 < sleeps[0] <= 6.0
+
+
+def test_gemini_needs_opt_in_and_key(monkeypatch):
+    from docex.providers.llm import GeminiProvider, ProviderError, llm_available
+
+    section = {"provider": "gemini", "model": "gemini-flash-latest"}
+    monkeypatch.setenv("GEMINI_API_KEY", "test")
+    monkeypatch.delenv("DOCEX_ENABLE_LLM", raising=False)
+    assert not llm_available(section)
+    with pytest.raises(ProviderError, match="DOCEX_ENABLE_LLM"):
+        GeminiProvider("gemini-flash-latest")
+    monkeypatch.setenv("DOCEX_ENABLE_LLM", "true")
+    assert llm_available(section)
+    monkeypatch.delenv("GEMINI_API_KEY")
+    assert not llm_available(section)

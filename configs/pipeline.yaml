@@ -13,20 +13,29 @@ ocr:
   languages: "ind+eng"
   psm: 6                # tesseract page segmentation mode (6 won on train, see README)
 
-# Default provider is OpenAI (OPENAI_API_KEY). Switch to Claude with provider: anthropic,
-# model: claude-opus-5-5 (ANTHROPIC_API_KEY), or a local model with provider: openai_compatible.
+# Default provider is the Gemini API free tier (GEMINI_API_KEY from a Google project without billing).
+# Other options: provider: openai, model: gpt-4.1-mini (OPENAI_API_KEY); provider: anthropic,
+# model: claude-opus-5-5 (ANTHROPIC_API_KEY); or a local model with provider: openai_compatible.
+# Hosted providers also need DOCEX_ENABLE_LLM=true.
 llm:
-  provider: openai      # openai | anthropic | openai_compatible | mock
-  model: gpt-4.1-mini
+  provider: gemini      # gemini | openai | anthropic | openai_compatible | mock
+  model: gemini-flash-latest   # alias for the current Flash model; check AI Studio for free-tier models
   effort: low           # anthropic only
   max_tokens: 16000
   temperature: null
 
 vlm:
-  provider: openai
-  model: gpt-4.1-mini
+  provider: gemini
+  model: gemini-flash-latest
   effort: low
   max_tokens: 16000
+
+gemini:
+  base_url: "https://generativelanguage.googleapis.com/v1beta/openai"
+  # Free-tier limits are per project and change over time. 6 s apart keeps one process under 10 requests
+  # per minute; a 429 is retried max_retries times, then the document fails (nothing is billed).
+  min_interval_s: 6
+  max_retries: 3
 
 openai_compatible:
   # For a local open-source model served by Ollama / vLLM / llama.cpp.
@@ -73,4 +82,5 @@ costs:
     claude-opus-5-5: {input: 4.00, output: 20.00}
     claude-sonnet-5-5: {input: 2.00, output: 10.00}
     claude-haiku-5-5: {input: 0.10, output: 0.50}
+    gemini-flash-latest: {input: 0.0, output: 0.0}   # free tier, no billing; paid-tier prices differ
     mock: {input: 0.0, output: 0.0}
