@@ -1,0 +1,69 @@
+# Pipeline configuration. Values can be overridden with env vars DOCEX_<SECTION>__<KEY>.
+
+approach: A            # A = OCR + regex, B = OCR + text LLM, C = vision LLM
+
+preprocess:
+  dpi: 200
+  max_side: 2000
+  deskew: true
+  fix_orientation: true
+
+ocr:
+  provider: tesseract   # tesseract | rapidocr
+  languages: "ind+eng"
+  psm: 6                # tesseract page segmentation mode (6 won on train, see README)
+
+llm:
+  provider: anthropic   # anthropic | mock | openai_compatible
+  model: claude-opus-5-5
+  effort: low
+  max_tokens: 16000
+  temperature: null
+
+vlm:
+  provider: anthropic
+  model: claude-opus-5-5
+  effort: low
+  max_tokens: 16000
+
+openai_compatible:
+  # For a local open-source model served by Ollama / vLLM / llama.cpp.
+  base_url: "http://localhost:11434/v1"
+  model: "qwen2.5vl:7b"
+
+classify:
+  method: auto          # auto = keyword for A/B (uses OCR text), llm for C
+
+prompts:
+  extract: extract_v1
+  repair: repair_v1
+  classify: classify_v1
+
+repair:
+  enabled: true
+  max_attempts: 1
+
+scoring:
+  # Document score = min confidence over critical fields, multiplied by penalties.
+  error_penalty: 0.25
+  warning_penalty: 0.85
+  missing_critical_confidence: 0.0
+  # Auto-approve threshold per approach, chosen from the dev-set threshold curve as the
+  # highest straight-through rate with <= 1% errors among auto-approved documents
+  # (eval/reports/<run>/report.md). B and C: placeholder until their dev eval has run.
+  thresholds: {A: 0.77, B: 0.90, C: 0.90}
+
+limits:
+  max_upload_mb: 10
+  rate_limit: "30/minute"
+  allowed_types: ["application/pdf", "image/png", "image/jpeg", "image/webp", "image/tiff"]
+
+costs:
+  usd_to_idr: 16500           # TODO(verify): update exchange rate before reporting
+  cpu_usd_per_hour: 0.05      # assumed price of 1 vCPU-hour for local OCR/compute
+  # USD per 1M tokens; keep in sync with provider price lists
+  token_prices:
+    claude-opus-5-5: {input: 4.00, output: 20.00}
+    claude-sonnet-5-5: {input: 2.00, output: 10.00}
+    claude-haiku-5-5: {input: 0.10, output: 0.50}
+    mock: {input: 0.0, output: 0.0}

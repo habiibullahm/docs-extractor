@@ -1,0 +1,84 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      cord_limit:
+        description: "Also download N CORD receipts and evaluate approach A on them (0 = skip)"
+        default: "0"
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12", cache: pip}
+      - run: sudo apt-get update && sudo apt-get install -y tesseract-ocr tesseract-ocr-ind
+      - run: pip install -e ".[api,ui,eval,dev]"
+      - run: pytest -q
+
+  eval-regression:
+    # Runs the pipeline on the frozen CI subset and fails if accuracy drops > 2 points vs the stored baseline.
+    runs-on: ubuntu-24.04
+    env:
+      DOCEX_DATA_DIR: eval/ci_data
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12", cache: pip}
+      - run: sudo apt-get update && sudo apt-get install -y tesseract-ocr tesseract-ocr-ind
+      - run: pip install -e ".[api,eval]"
+      - name: Approach A (local OCR + regex)
+        run: |
+          python -m eval.run --approach A --split dev --run-id ci_A
+          python -m eval.check_regression eval/reports/ci_A/metrics.json eval/baselines/ci_A.json --max-drop 0.02
+      - name: Approach C (vision LLM) — only when the API key secret exists
+        if: env.ANTHROPIC_API_KEY != ''
+        run: |
+          python -m eval.run --approach C --split dev --run-id ci_C --workers 6
+          python -m eval.check_regression eval/reports/ci_C/metrics.json eval/baselines/ci_C.json --max-drop 0.02
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ci-eval-reports
+          path: eval/reports/ci_*/
+
+  cord-eval:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.cord_limit != '0'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12", cache: pip}
+      - run: sudo apt-get update && sudo apt-get install -y tesseract-ocr tesseract-ocr-ind
+      - run: pip install -e ".[api,eval,cord]"
+      - name: Download CORD and evaluate approach A on its validation split
+        env: {DOCEX_DATA_DIR: data_cord}
+        run: |
+          python -m docex.ingest.cord --limit ${{ github.event.inputs.cord_limit }}
+          python -m eval.run --approach A --split dev --sources cord --run-id cord_A_dev --oracle-type
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cord-eval-report
+          path: eval/reports/cord_A_dev/
+
+  docker:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t docex:ci .
+      - name: Smoke test the single-container image
+        run: |
+          docker run -d --name docex -p 7860:7860 -p 8000:8000 docex:ci
+          for i in $(seq 1 30); do curl -fs localhost:8000/health && break; sleep 2; done
+          curl -fs localhost:8000/samples | head -c 200
+          curl -fs -o /dev/null localhost:7860

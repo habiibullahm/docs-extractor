@@ -1,0 +1,74 @@
+[
+ {
+  "name": "faktur_pajak-medium-0002",
+  "file": "faktur_pajak-medium-0002.jpg",
+  "label": "Faktur pajak, medium (faktur_efaktur)",
+  "doc_id": "syn-fak-0002"
+ },
+ {
+  "name": "faktur_pajak-heavy-0003",
+  "file": "faktur_pajak-heavy-0003.jpg",
+  "label": "Faktur pajak, heavy (faktur_coretax)",
+  "doc_id": "syn-fak-0003"
+ },
+ {
+  "name": "faktur_pajak-clean-0004",
+  "file": "faktur_pajak-clean-0004.pdf",
+  "label": "Faktur pajak, clean (faktur_efaktur)",
+  "doc_id": "syn-fak-0004"
+ },
+ {
+  "name": "faktur_pajak-heavy-0008",
+  "file": "faktur_pajak-heavy-0008.jpg",
+  "label": "Faktur pajak, heavy (faktur_efaktur)",
+  "doc_id": "syn-fak-0008"
+ },
+ {
+  "name": "invoice-medium-0002",
+  "file": "invoice-medium-0002.jpg",
+  "label": "Invoice, medium (invoice_compact)",
+  "doc_id": "syn-inv-0002"
+ },
+ {
+  "name": "invoice-heavy-0003",
+  "file": "invoice-heavy-0003.jpg",
+  "label": "Invoice, heavy (invoice_modern)",
+  "doc_id": "syn-inv-0003"
+ },
+ {
+  "name": "invoice-clean-0004",
+  "file": "invoice-clean-0004.pdf",
+  "label": "Invoice, clean (invoice_classic)",
+  "doc_id": "syn-inv-0004"
+ },
+ {
+  "name": "invoice-medium-0006",
+  "file": "invoice-medium-0006.jpg",
+  "label": "Invoice, medium (invoice_modern)",
+  "doc_id": "syn-inv-0006"
+ },
+ {
+  "name": "receipt-medium-0000",
+  "file": "receipt-medium-0000.jpg",
+  "label": "Struk, medium (receipt_thermal)",
+  "doc_id": "syn-rec-0000"
+ },
+ {
+  "name": "receipt-clean-0004",
+  "file": "receipt-clean-0004.pdf",
+  "label": "Struk, clean (receipt_thermal)",
+  "doc_id": "syn-rec-0004"
+ },
+ {
+  "name": "receipt-heavy-0007",
+  "file": "receipt-heavy-0007.jpg",
+  "label": "Struk, heavy (receipt_cafe)",
+  "doc_id": "syn-rec-0007"
+ },
+ {
+  "name": "receipt-heavy-0128",
+  "file": "receipt-heavy-0128.jpg",
+  "label": "Struk, heavy (receipt_thermal)",
+  "doc_id": "syn-rec-0128"
+ }
+]

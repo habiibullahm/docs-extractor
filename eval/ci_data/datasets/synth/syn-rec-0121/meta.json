@@ -1,0 +1,18 @@
+{
+ "doc_id": "syn-rec-0121",
+ "doc_type": "receipt",
+ "source": "synthetic",
+ "template": "receipt_cafe",
+ "style": {
+  "money": "id",
+  "date": "slash"
+ },
+ "dirt": "light",
+ "degradation": {
+  "level": "light",
+  "rotate": 0.03,
+  "jpeg": 80
+ },
+ "input": "input.jpg",
+ "inconsistent": false
+}

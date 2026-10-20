@@ -1,0 +1,57 @@
+{
+ "doc_type": "faktur_pajak",
+ "tax_invoice_number": "0700002355466590",
+ "date": "2023-03-26",
+ "seller": {
+  "name": "PT Saefullah Agustina",
+  "npwp": "515186449251925",
+  "nik": null,
+  "address": "Gg. Rajawali Barat No. 9, Bukittinggi, ST 55886"
+ },
+ "buyer": {
+  "name": "UD Nainggolan Permadi Tbk",
+  "npwp": "462914865281685",
+  "nik": null,
+  "address": "Gg. Waringin No. 6, Surabaya, Jawa Tengah 02895"
+ },
+ "line_items": [
+  {
+   "description": "Pupuk NPK 50kg",
+   "quantity": 3.0,
+   "unit_price": 541000.0,
+   "discount": null,
+   "total": 1623000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Seragam Karyawan",
+   "quantity": 1.0,
+   "unit_price": 206000.0,
+   "discount": null,
+   "total": 206000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Router WiFi Dual Band",
+   "quantity": 2.0,
+   "unit_price": 1187000.0,
+   "discount": 356100.0,
+   "total": 2017900.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Semen Portland 50kg",
+   "quantity": 1.0,
+   "unit_price": 62600.0,
+   "discount": null,
+   "total": 62600.0,
+   "is_adjustment": false
+  }
+ ],
+ "total": 3909500.0,
+ "discount": 78200.0,
+ "dpp": 3831300.0,
+ "ppn": 421443.0,
+ "ppnbm": 0.0,
+ "document_inconsistent": false
+}

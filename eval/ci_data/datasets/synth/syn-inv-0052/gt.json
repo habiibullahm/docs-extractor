@@ -1,0 +1,95 @@
+{
+ "doc_type": "invoice",
+ "invoice_number": "SI-2025046679",
+ "date": "2025-04-20",
+ "due_date": "2025-05-20",
+ "vendor": {
+  "name": "Perum Mardhiyah Permata",
+  "npwp": "383638164321269",
+  "nik": null,
+  "address": "Gg. Kapten Muslihat No. 8, Lubuklinggau, KR 94353"
+ },
+ "customer": {
+  "name": "CV Hasanah Tbk",
+  "npwp": null,
+  "nik": null,
+  "address": "Gang Siliwangi No. 588, Mataram, Sulawesi Utara 76392"
+ },
+ "line_items": [
+  {
+   "description": "Jasa Pengiriman Barang",
+   "quantity": 1.0,
+   "unit_price": 331000.0,
+   "discount": null,
+   "total": 331000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Jasa Instalasi Jaringan",
+   "quantity": 2.0,
+   "unit_price": 5010000.0,
+   "discount": null,
+   "total": 10020000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Pupuk NPK 50kg",
+   "quantity": 1.0,
+   "unit_price": 580000.0,
+   "discount": null,
+   "total": 580000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Kertas HVS A4 80gsm",
+   "quantity": 2.0,
+   "unit_price": 70000.0,
+   "discount": null,
+   "total": 140000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Oli Mesin 4L",
+   "quantity": 1.0,
+   "unit_price": 362000.0,
+   "discount": null,
+   "total": 362000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Router WiFi Dual Band",
+   "quantity": 1.0,
+   "unit_price": 646000.0,
+   "discount": null,
+   "total": 646000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Minyak Goreng 2L",
+   "quantity": 2.0,
+   "unit_price": 39700.0,
+   "discount": null,
+   "total": 79400.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Meja Kerja Kayu Jati",
+   "quantity": 1.0,
+   "unit_price": 2459000.0,
+   "discount": null,
+   "total": 2459000.0,
+   "is_adjustment": false
+  }
+ ],
+ "subtotal": 14617400.0,
+ "discount": 730870.0,
+ "tax": 0.0,
+ "total": 13886530.0,
+ "currency": "IDR",
+ "bank_account": {
+  "bank_name": null,
+  "account_number": null,
+  "account_name": null
+ },
+ "document_inconsistent": false
+}

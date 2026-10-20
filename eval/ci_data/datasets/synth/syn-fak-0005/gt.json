@@ -1,0 +1,33 @@
+{
+ "doc_type": "faktur_pajak",
+ "tax_invoice_number": "07026204505331586",
+ "date": "2026-02-22",
+ "seller": {
+  "name": "PT Handayani Pudjiastuti",
+  "npwp": "322602563421607",
+  "nik": null,
+  "address": "Jl. Moch. Toha No. 677, Padang, Bengkulu 60647"
+ },
+ "buyer": {
+  "name": "PD Puspita Tbk",
+  "npwp": "0754330365414586",
+  "nik": null,
+  "address": "Jalan Cikutra Barat No. 8, Tidore Kepulauan, Maluku Utara 09788"
+ },
+ "line_items": [
+  {
+   "description": "Jasa Pelatihan SDM",
+   "quantity": 1.0,
+   "unit_price": 12729000.0,
+   "discount": null,
+   "total": 12729000.0,
+   "is_adjustment": false
+  }
+ ],
+ "total": 12729000.0,
+ "discount": 636400.0,
+ "dpp": 12092600.0,
+ "ppn": 1451112.0,
+ "ppnbm": 0.0,
+ "document_inconsistent": false
+}

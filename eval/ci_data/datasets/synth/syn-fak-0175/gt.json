@@ -1,0 +1,73 @@
+{
+ "doc_type": "faktur_pajak",
+ "tax_invoice_number": "07025043878753577",
+ "date": "2025-09-03",
+ "seller": {
+  "name": "CV Sihombing Tbk",
+  "npwp": "116162028123710",
+  "nik": null,
+  "address": "Gang Medokan Ayu No. 5, Banjarbaru, Jambi 49075"
+ },
+ "buyer": {
+  "name": "Perum Pratiwi Utami",
+  "npwp": "728728660416448",
+  "nik": null,
+  "address": "Gang Otto Iskandardinata No. 9, Tasikmalaya, Papua Barat 15893"
+ },
+ "line_items": [
+  {
+   "description": "Kabel NYM 3x2.5 50m",
+   "quantity": 10.0,
+   "unit_price": 692000.0,
+   "discount": null,
+   "total": 6920000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Jasa Konsultasi Pajak",
+   "quantity": 3.0,
+   "unit_price": 9918000.0,
+   "discount": 2975400.0,
+   "total": 26778600.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Kursi Kantor Ergonomis",
+   "quantity": 3.0,
+   "unit_price": 1504000.0,
+   "discount": null,
+   "total": 4512000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Router WiFi Dual Band",
+   "quantity": 1.0,
+   "unit_price": 494000.0,
+   "discount": null,
+   "total": 494000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Laptop Lenovo IdeaPad Slim 3",
+   "quantity": 3.0,
+   "unit_price": 8216000.0,
+   "discount": null,
+   "total": 24648000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Monitor LED 24 inci",
+   "quantity": 1.0,
+   "unit_price": 1533000.0,
+   "discount": null,
+   "total": 1533000.0,
+   "is_adjustment": false
+  }
+ ],
+ "total": 64885600.0,
+ "discount": 3244300.0,
+ "dpp": 56504525.0,
+ "ppn": 6780543.0,
+ "ppnbm": 0.0,
+ "document_inconsistent": false
+}

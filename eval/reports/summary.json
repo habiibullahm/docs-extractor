@@ -1,0 +1,16 @@
+{
+ "split": "dev",
+ "approaches": [
+  {
+   "approach": "A \u00b7 OCR + regex",
+   "n": 115,
+   "field_accuracy": 0.8938,
+   "doc_accuracy": 0.7391,
+   "items_f1": 0.8385,
+   "recommended_threshold": 0.77,
+   "stp_at_threshold": 0.043478260869565216,
+   "cost_usd_per_1000": 0.053,
+   "latency_p50_s": 3.53
+  }
+ ]
+}

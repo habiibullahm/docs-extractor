@@ -1,0 +1,22 @@
+{
+ "doc_id": "syn-inv-0183",
+ "doc_type": "invoice",
+ "source": "synthetic",
+ "template": "invoice_modern",
+ "style": {
+  "money": "id_dec",
+  "date": "iso"
+ },
+ "dirt": "heavy",
+ "degradation": {
+  "level": "heavy",
+  "scan": true,
+  "rotate": -0.95,
+  "blur": 5,
+  "noise": 14,
+  "downscale": 0.63,
+  "jpeg": 40
+ },
+ "input": "input.jpg",
+ "inconsistent": false
+}

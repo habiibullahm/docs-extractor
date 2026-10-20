@@ -1,0 +1,32 @@
+{
+ "doc_type": "receipt",
+ "store_name": "Kopi Mansur",
+ "store_address": "Gang Ahmad Yani No. 00, Padangpanjang",
+ "date": "2025-05-04",
+ "time": "20:59",
+ "line_items": [
+  {
+   "description": "Aqua 600ml",
+   "quantity": 1.0,
+   "unit_price": 6200.0,
+   "discount": null,
+   "total": 6200.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Pasta Gigi 190g",
+   "quantity": 1.0,
+   "unit_price": 21000.0,
+   "discount": null,
+   "total": 21000.0,
+   "is_adjustment": false
+  }
+ ],
+ "subtotal": 27200.0,
+ "discount": null,
+ "tax": 2720.0,
+ "service_charge": null,
+ "total": 29920.0,
+ "payment_method": "GOPAY",
+ "document_inconsistent": false
+}

@@ -1,0 +1,65 @@
+{
+ "doc_type": "faktur_pajak",
+ "tax_invoice_number": "0400012364381561",
+ "date": "2023-10-21",
+ "seller": {
+  "name": "UD Suartini Ramadan (Persero) Tbk",
+  "npwp": "978403690034324",
+  "nik": null,
+  "address": "Gg. Joyoboyo No. 278, Kota Administrasi Jakarta Utara, Kalimantan Barat 71756"
+ },
+ "buyer": {
+  "name": "UD Winarsih (Persero) Tbk",
+  "npwp": "451076226838851",
+  "nik": null,
+  "address": "Gang Peta No. 6, Palu, DKI Jakarta 45168"
+ },
+ "line_items": [
+  {
+   "description": "Hard Disk Eksternal 1TB",
+   "quantity": 1.0,
+   "unit_price": 782000.0,
+   "discount": null,
+   "total": 782000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Sewa Server Bulanan",
+   "quantity": 3.0,
+   "unit_price": 4229000.0,
+   "discount": null,
+   "total": 12687000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Laptop Lenovo IdeaPad Slim 3",
+   "quantity": 2.0,
+   "unit_price": 8217000.0,
+   "discount": null,
+   "total": 16434000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Kursi Kantor Ergonomis",
+   "quantity": 1.0,
+   "unit_price": 1954000.0,
+   "discount": 293100.0,
+   "total": 1660900.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Mesin Fotokopi Refurbish",
+   "quantity": 1.0,
+   "unit_price": 23762000.0,
+   "discount": null,
+   "total": 23762000.0,
+   "is_adjustment": false
+  }
+ ],
+ "total": 55325900.0,
+ "discount": 1106500.0,
+ "dpp": 54219400.0,
+ "ppn": 5964134.0,
+ "ppnbm": 0.0,
+ "document_inconsistent": false
+}

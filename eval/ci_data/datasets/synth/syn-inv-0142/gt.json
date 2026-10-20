@@ -1,0 +1,39 @@
+{
+ "doc_type": "invoice",
+ "invoice_number": "INV-2024120462",
+ "date": "2024-12-15",
+ "due_date": "2024-12-29",
+ "vendor": {
+  "name": "UD Saragih",
+  "npwp": null,
+  "nik": null,
+  "address": "Jalan Surapati No. 461, Kota Administrasi Jakarta Timur, Bengkulu 11901"
+ },
+ "customer": {
+  "name": "PT Halimah Tarihoran Tbk",
+  "npwp": null,
+  "nik": null,
+  "address": "Jl. Ciwastra No. 22, Sorong, Bali 32283"
+ },
+ "line_items": [
+  {
+   "description": "Cat Tembok 5kg",
+   "quantity": 1.0,
+   "unit_price": 261000.0,
+   "discount": null,
+   "total": 261000.0,
+   "is_adjustment": false
+  }
+ ],
+ "subtotal": 261000.0,
+ "discount": 0.0,
+ "tax": 31320.0,
+ "total": 292320.0,
+ "currency": "IDR",
+ "bank_account": {
+  "bank_name": "Bank Rakyat Indonesia",
+  "account_number": "3810979412248",
+  "account_name": "UD Saragih"
+ },
+ "document_inconsistent": false
+}

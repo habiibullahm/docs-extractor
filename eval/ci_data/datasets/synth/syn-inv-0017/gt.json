@@ -1,0 +1,47 @@
+{
+ "doc_type": "invoice",
+ "invoice_number": "INV-2023092607",
+ "date": "2023-09-28",
+ "due_date": "2023-10-28",
+ "vendor": {
+  "name": "UD Hakim (Persero) Tbk",
+  "npwp": "551651768086628",
+  "nik": null,
+  "address": "Jalan Pasir Koja No. 891, Sungai Penuh, BB 73543"
+ },
+ "customer": {
+  "name": "CV Hassanah Pradipta Tbk",
+  "npwp": null,
+  "nik": null,
+  "address": "Jalan Yos Sudarso No. 722, Salatiga, SB 40422"
+ },
+ "line_items": [
+  {
+   "description": "Kursi Kantor Ergonomis",
+   "quantity": 1.0,
+   "unit_price": 126.56,
+   "discount": null,
+   "total": 126.56,
+   "is_adjustment": false
+  },
+  {
+   "description": "Monitor LED 24 inci",
+   "quantity": 1.0,
+   "unit_price": 98.94,
+   "discount": null,
+   "total": 98.94,
+   "is_adjustment": false
+  }
+ ],
+ "subtotal": 225.5,
+ "discount": 0.0,
+ "tax": 0.0,
+ "total": 225.5,
+ "currency": "USD",
+ "bank_account": {
+  "bank_name": null,
+  "account_number": null,
+  "account_name": null
+ },
+ "document_inconsistent": false
+}

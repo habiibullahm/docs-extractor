@@ -1,0 +1,24 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>
+body { font-family: "Courier New", "DejaVu Sans Mono", monospace; font-size: 12px; width: 280px; margin: 8px auto; color: #111; }
+.c { text-align: center; } .r { text-align: right; }
+hr { border: none; border-top: 1px dashed #000; }
+table { width: 100%; border-collapse: collapse; } td { padding: 1px 0; vertical-align: top; }
+</style></head><body>
+<div class="c"><b>{{ g.store_name | upper }}</b><br>{{ g.store_address }}</div>
+<hr>
+<table><tr><td>{{ g.date | tanggal }} {{ g.time }}</td><td class="r">Kasir: {{ r.cashier }}</td></tr><tr><td colspan="2">No: {{ r.trx }}</td></tr></table>
+<hr>
+<table>
+{% for it in g.line_items %}{% if it.is_adjustment %}<tr><td>{{ it.description }}</td><td class="r">{{ it.total | money }}</td></tr>
+{% else %}<tr><td colspan="2">{{ it.description }}</td></tr><tr><td>&nbsp; {{ it.quantity | qty }} x {{ it.unit_price | money }}</td><td class="r">{{ it.total | money }}</td></tr>{% endif %}{% endfor %}
+</table>
+<hr>
+<table><tr><td>SUBTOTAL</td><td class="r">{{ g.subtotal | money }}</td></tr>
+{% if g.service_charge %}<tr><td>SERVICE</td><td class="r">{{ g.service_charge | money }}</td></tr>{% endif %}
+{% if g.tax %}<tr><td>PB1 10%</td><td class="r">{{ g.tax | money }}</td></tr>{% endif %}
+<tr><td><b>TOTAL</b></td><td class="r"><b>{{ g.total | money }}</b></td></tr>
+<tr><td>{{ g.payment_method }}</td><td class="r">{{ r.paid | money }}</td></tr>
+<tr><td>KEMBALI</td><td class="r">{{ r.change | money }}</td></tr></table>
+<hr><div class="c">TERIMA KASIH<br>BARANG YANG SUDAH DIBELI<br>TIDAK DAPAT DITUKAR</div>
+</body></html>

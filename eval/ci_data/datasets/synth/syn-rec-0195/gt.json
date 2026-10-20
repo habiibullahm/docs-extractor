@@ -1,0 +1,56 @@
+{
+ "doc_type": "receipt",
+ "store_name": "Rumah Makan Sitompul",
+ "store_address": "Jalan Wonoayu No. 7, Tidore Kepulauan",
+ "date": "2026-09-13",
+ "time": "18:29",
+ "line_items": [
+  {
+   "description": "Teh Botol Sosro",
+   "quantity": 12.0,
+   "unit_price": 6500.0,
+   "discount": null,
+   "total": 78000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Roti Tawar",
+   "quantity": 3.0,
+   "unit_price": 14200.0,
+   "discount": null,
+   "total": 42600.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Indomie Telur",
+   "quantity": 3.0,
+   "unit_price": 13900.0,
+   "discount": null,
+   "total": 41700.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Beras 5kg",
+   "quantity": 20.0,
+   "unit_price": 72100.0,
+   "discount": null,
+   "total": 1442000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Telur Ayam 1kg",
+   "quantity": 20.0,
+   "unit_price": 28300.0,
+   "discount": null,
+   "total": 566000.0,
+   "is_adjustment": false
+  }
+ ],
+ "subtotal": 2170300.0,
+ "discount": null,
+ "tax": 217030.0,
+ "service_charge": null,
+ "total": 2387330.0,
+ "payment_method": "KARTU KREDIT",
+ "document_inconsistent": false
+}

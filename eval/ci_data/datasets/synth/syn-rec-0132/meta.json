@@ -1,0 +1,16 @@
+{
+ "doc_id": "syn-rec-0132",
+ "doc_type": "receipt",
+ "source": "synthetic",
+ "template": "receipt_thermal",
+ "style": {
+  "money": "id",
+  "date": "iso"
+ },
+ "dirt": "clean",
+ "degradation": {
+  "level": "clean"
+ },
+ "input": "doc.pdf",
+ "inconsistent": false
+}

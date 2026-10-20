@@ -1,0 +1,6 @@
+{
+ "field_accuracy": 0.8715,
+ "doc_accuracy_critical": 0.7222,
+ "critical_field_accuracy": 0.8889,
+ "items_f1": 0.7961
+}

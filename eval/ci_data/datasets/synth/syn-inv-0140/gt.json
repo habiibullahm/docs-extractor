@@ -1,0 +1,71 @@
+{
+ "doc_type": "invoice",
+ "invoice_number": "SI-2026075745",
+ "date": "2026-07-24",
+ "due_date": "2026-08-07",
+ "vendor": {
+  "name": "Perum Ramadan Budiyanto",
+  "npwp": "0447189395309690",
+  "nik": null,
+  "address": "Jl. Sadang Serang No. 883, Tomohon, Nusa Tenggara Timur 56618"
+ },
+ "customer": {
+  "name": "CV Marbun Nainggolan Tbk",
+  "npwp": null,
+  "nik": null,
+  "address": "Gang Sukajadi No. 53, Bandung, Sulawesi Tengah 09505"
+ },
+ "line_items": [
+  {
+   "description": "Tinta Printer Epson 003",
+   "quantity": 10.0,
+   "unit_price": 102000.0,
+   "discount": null,
+   "total": 1020000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Jasa Instalasi Jaringan",
+   "quantity": 1.0,
+   "unit_price": 3452000.0,
+   "discount": null,
+   "total": 3452000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Monitor LED 24 inci",
+   "quantity": 1.0,
+   "unit_price": 1507000.0,
+   "discount": null,
+   "total": 1507000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Semen Portland 50kg",
+   "quantity": 1.0,
+   "unit_price": 69800.0,
+   "discount": null,
+   "total": 69800.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Hard Disk Eksternal 1TB",
+   "quantity": 1.0,
+   "unit_price": 898000.0,
+   "discount": null,
+   "total": 898000.0,
+   "is_adjustment": false
+  }
+ ],
+ "subtotal": 6946800.0,
+ "discount": 694680.0,
+ "tax": 687733.0,
+ "total": 6939853.0,
+ "currency": "IDR",
+ "bank_account": {
+  "bank_name": "Bank CIMB Niaga",
+  "account_number": "9228849874",
+  "account_name": "Perum Ramadan Budiyanto"
+ },
+ "document_inconsistent": false
+}

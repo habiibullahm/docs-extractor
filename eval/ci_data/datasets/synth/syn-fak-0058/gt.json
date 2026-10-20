@@ -1,0 +1,33 @@
+{
+ "doc_type": "faktur_pajak",
+ "tax_invoice_number": "0700012310272614",
+ "date": "2023-08-22",
+ "seller": {
+  "name": "Perum Dongoran Hariyah",
+  "npwp": "316373516091779",
+  "nik": null,
+  "address": "Jalan Tubagus Ismail No. 7, Subulussalam, Maluku 42661"
+ },
+ "buyer": {
+  "name": "Perum Kuswandari Padmasari Tbk",
+  "npwp": "827080869782922",
+  "nik": null,
+  "address": "Jalan Dr. Djunjunan No. 529, Salatiga, RI 61014"
+ },
+ "line_items": [
+  {
+   "description": "Air Mineral Galon",
+   "quantity": 20.0,
+   "unit_price": 19600.0,
+   "discount": null,
+   "total": 392000.0,
+   "is_adjustment": false
+  }
+ ],
+ "total": 392000.0,
+ "discount": 0.0,
+ "dpp": 392000.0,
+ "ppn": 43120.0,
+ "ppnbm": 0.0,
+ "document_inconsistent": false
+}

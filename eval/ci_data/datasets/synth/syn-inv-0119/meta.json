@@ -1,0 +1,22 @@
+{
+ "doc_id": "syn-inv-0119",
+ "doc_type": "invoice",
+ "source": "synthetic",
+ "template": "invoice_compact",
+ "style": {
+  "money": "en_dec",
+  "date": "dash"
+ },
+ "dirt": "heavy",
+ "degradation": {
+  "level": "heavy",
+  "scan": true,
+  "rotate": -4.16,
+  "blur": 3,
+  "noise": 14,
+  "downscale": 0.69,
+  "jpeg": 40
+ },
+ "input": "input.jpg",
+ "inconsistent": false
+}

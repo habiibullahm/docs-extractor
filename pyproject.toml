@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "docex"
+version = "0.1.0"
+description = "Extraction of Indonesian financial documents (faktur pajak, invoices, receipts) into validated JSON"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "pydantic>=2.6",
+  "pyyaml>=6",
+  "numpy>=1.26",
+  "pillow>=10",
+  "opencv-python-headless>=4.9",
+  "pymupdf>=1.24",
+  "pytesseract>=0.3.10",
+  "rapidfuzz>=3.6",
+  "structlog>=24.1",
+  "sqlalchemy>=2.0",
+  "anthropic>=1.0",
+  "jinja2>=3.1",
+]
+
+[project.optional-dependencies]
+ocr-rapid = ["rapidocr-onnxruntime>=1.2"]
+api = ["fastapi>=0.110", "uvicorn[standard]>=0.29", "python-multipart>=0.0.9", "slowapi>=0.1.9", "rq>=1.16", "redis>=5", "psycopg[binary]>=3.1"]
+ui = ["streamlit>=1.35", "httpx>=0.27"]
+synth = ["faker>=24", "playwright>=1.44"]
+eval = ["matplotlib>=3.8", "pandas>=2.2"]
+cord = ["datasets>=2.19"]
+dev = ["pytest>=8", "httpx>=0.27"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "."]

@@ -1,0 +1,81 @@
+{
+ "doc_type": "faktur_pajak",
+ "tax_invoice_number": "07026512694486959",
+ "date": "2026-01-09",
+ "seller": {
+  "name": "PT Jailani",
+  "npwp": "0368872588744956",
+  "nik": null,
+  "address": "Jalan Sukabumi No. 218, Singkawang, JI 53269"
+ },
+ "buyer": {
+  "name": "CV Irawan Januar (Persero) Tbk",
+  "npwp": "137213865890260",
+  "nik": null,
+  "address": "Gang Raya Setiabudhi No. 341, Purwokerto, Lampung 43898"
+ },
+ "line_items": [
+  {
+   "description": "Hard Disk Eksternal 1TB",
+   "quantity": 3.0,
+   "unit_price": 830000.0,
+   "discount": null,
+   "total": 2490000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Router WiFi Dual Band",
+   "quantity": 3.0,
+   "unit_price": 713000.0,
+   "discount": null,
+   "total": 2139000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Lisensi Software Akuntansi",
+   "quantity": 1.0,
+   "unit_price": 6829000.0,
+   "discount": null,
+   "total": 6829000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Minyak Goreng 2L",
+   "quantity": 2.0,
+   "unit_price": 39300.0,
+   "discount": 11800.0,
+   "total": 66800.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Pupuk NPK 50kg",
+   "quantity": 10.0,
+   "unit_price": 511000.0,
+   "discount": 766500.0,
+   "total": 4343500.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Jasa Instalasi Jaringan",
+   "quantity": 1.0,
+   "unit_price": 3890000.0,
+   "discount": 194500.0,
+   "total": 3695500.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Tinta Printer Epson 003",
+   "quantity": 4.0,
+   "unit_price": 106000.0,
+   "discount": null,
+   "total": 424000.0,
+   "is_adjustment": false
+  }
+ ],
+ "total": 19987800.0,
+ "discount": 0.0,
+ "dpp": 18322150.0,
+ "ppn": 2198658.0,
+ "ppnbm": 0.0,
+ "document_inconsistent": false
+}

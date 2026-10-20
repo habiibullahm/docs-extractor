@@ -1,0 +1,24 @@
+{
+ "doc_type": "receipt",
+ "store_name": "Warung Susanti",
+ "store_address": "Gg. Kutai No. 9, Samarinda",
+ "date": "2025-10-23",
+ "time": "17:18",
+ "line_items": [
+  {
+   "description": "Jus Alpukat",
+   "quantity": 2.0,
+   "unit_price": 19100.0,
+   "discount": null,
+   "total": 38200.0,
+   "is_adjustment": false
+  }
+ ],
+ "subtotal": 38200.0,
+ "discount": null,
+ "tax": null,
+ "service_charge": 1910.0,
+ "total": 40110.0,
+ "payment_method": "QRIS",
+ "document_inconsistent": false
+}

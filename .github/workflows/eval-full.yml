@@ -1,0 +1,45 @@
+name: eval-full
+
+# Manual: rebuild the synthetic dataset and run approaches A, B and C on the same machine,
+# then publish the comparison as an artifact (commit it to eval/reports/ to update the README).
+
+on:
+  workflow_dispatch:
+    inputs:
+      split:
+        description: "dev, or test (locked test set, final numbers only)"
+        default: dev
+      limit:
+        description: "max documents per approach (empty = whole split)"
+        default: ""
+      approaches:
+        default: "A,B,C"
+
+jobs:
+  eval:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12", cache: pip}
+      - run: sudo apt-get update && sudo apt-get install -y tesseract-ocr tesseract-ocr-ind fonts-dejavu
+      - run: pip install -e ".[api,eval,synth]" && playwright install --with-deps chromium
+      - run: python -m synth.build --per-type 200 --seed 42
+      - name: Evaluate
+        run: |
+          FINAL=""; [ "${{ inputs.split }}" = "test" ] && FINAL="--final"
+          LIMIT=""; [ -n "${{ inputs.limit }}" ] && LIMIT="--limit ${{ inputs.limit }}"
+          for A in $(echo "${{ inputs.approaches }}" | tr ',' ' '); do
+            W=4; [ "$A" != "A" ] && W=8
+            python -m eval.run --approach $A --split ${{ inputs.split }} $FINAL $LIMIT --workers $W --run-id ${A}_${{ inputs.split }}_ci
+          done
+          python -m eval.summarize --split ${{ inputs.split }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: eval-${{ inputs.split }}
+          path: |
+            eval/reports/
+            !eval/reports/**/results.jsonl

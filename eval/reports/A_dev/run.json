@@ -1,0 +1,13 @@
+{
+ "run_id": "A_dev",
+ "approach": "A",
+ "split": "dev",
+ "n_docs": 115,
+ "dataset_version": "ca095be1085d07f7",
+ "threshold": 0.8,
+ "overrides": {},
+ "oracle_type": false,
+ "wall_time_s": 109.8,
+ "workers": 4,
+ "created": "2026-10-20 12:49:56"
+}

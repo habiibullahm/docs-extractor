@@ -1,0 +1,95 @@
+{
+ "doc_type": "invoice",
+ "invoice_number": "INV/2025/IX/698",
+ "date": "2025-02-09",
+ "due_date": "2025-02-16",
+ "vendor": {
+  "name": "UD Usada",
+  "npwp": null,
+  "nik": null,
+  "address": "Jl. Pelajar Pejuang No. 69, Medan, Riau 88319"
+ },
+ "customer": {
+  "name": "PT Pratama Setiawan",
+  "npwp": null,
+  "nik": null,
+  "address": "Jl. M.T Haryono No. 6, Samarinda, Kepulauan Riau 32033"
+ },
+ "line_items": [
+  {
+   "description": "Laptop Lenovo IdeaPad Slim 3",
+   "quantity": 1.0,
+   "unit_price": 9488000.0,
+   "discount": null,
+   "total": 9488000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Hard Disk Eksternal 1TB",
+   "quantity": 2.0,
+   "unit_price": 767000.0,
+   "discount": null,
+   "total": 1534000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Gula Pasir 1kg",
+   "quantity": 4.0,
+   "unit_price": 16200.0,
+   "discount": null,
+   "total": 64800.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Kabel NYM 3x2.5 50m",
+   "quantity": 1.0,
+   "unit_price": 893000.0,
+   "discount": null,
+   "total": 893000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Air Mineral Galon",
+   "quantity": 1.0,
+   "unit_price": 21000.0,
+   "discount": null,
+   "total": 21000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Cat Tembok 5kg",
+   "quantity": 2.0,
+   "unit_price": 319000.0,
+   "discount": null,
+   "total": 638000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Seragam Karyawan",
+   "quantity": 2.0,
+   "unit_price": 206000.0,
+   "discount": null,
+   "total": 412000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Tinta Printer Epson 003",
+   "quantity": 20.0,
+   "unit_price": 90000.0,
+   "discount": null,
+   "total": 1800000.0,
+   "is_adjustment": false
+  }
+ ],
+ "subtotal": 14850800.0,
+ "discount": 0.0,
+ "tax": 0.0,
+ "total": 14850800.0,
+ "currency": "IDR",
+ "bank_account": {
+  "bank_name": "Bank CIMB Niaga",
+  "account_number": "2985797363831",
+  "account_name": "UD Usada"
+ },
+ "document_inconsistent": false
+}

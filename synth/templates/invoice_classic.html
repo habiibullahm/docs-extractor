@@ -1,0 +1,26 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>
+@page { size: A4; margin: 16mm; }
+body { font-family: "Times New Roman", Georgia, serif; font-size: 12px; }
+.title { text-align: center; border-top: 2px solid #000; border-bottom: 2px solid #000; padding: 4px; font-size: 20px; font-weight: bold; margin: 10px 0; }
+.kop { text-align: center; } .kop b { font-size: 16px; }
+table.items { width: 100%; border-collapse: collapse; margin-top: 10px; }
+table.items td, table.items th { border: 1px solid #000; padding: 4px 6px; }
+.r { text-align: right; } .meta td { padding: 1px 6px 1px 0; }
+</style></head><body>
+<div class="kop"><b>{{ g.vendor.name | upper }}</b><br>{{ g.vendor.address }}{% if g.vendor.npwp %}<br>NPWP {{ g.vendor.npwp | npwp }}{% endif %}</div>
+<div class="title">FAKTUR PENJUALAN / INVOICE</div>
+<table style="width:100%"><tr><td style="width:55%">Kepada Yth.<br><b>{{ g.customer.name }}</b><br>{{ g.customer.address }}</td>
+<td><table class="meta"><tr><td>Nomor</td><td>: {{ g.invoice_number }}</td></tr><tr><td>Tanggal</td><td>: {{ g.date | tanggal }}</td></tr>
+<tr><td>Jatuh Tempo</td><td>: {{ g.due_date | tanggal }}</td></tr><tr><td>Mata Uang</td><td>: {{ g.currency }}</td></tr></table></td></tr></table>
+<table class="items"><tr><th>No</th><th>Uraian</th><th>Banyaknya</th><th>Harga Satuan</th><th>Jumlah</th></tr>
+{% for it in g.line_items %}<tr><td>{{ loop.index }}</td><td>{{ it.description }}</td><td class="r">{{ it.quantity | qty }}</td><td class="r">{{ it.unit_price | money }}</td><td class="r">{{ it.total | money }}</td></tr>{% endfor %}
+<tr><td colspan="4" class="r">Sub Total</td><td class="r">{{ g.subtotal | money }}</td></tr>
+<tr><td colspan="4" class="r">Potongan</td><td class="r">{{ g.discount | money }}</td></tr>
+<tr><td colspan="4" class="r">Pajak</td><td class="r">{{ g.tax | money }}</td></tr>
+<tr><td colspan="4" class="r"><b>Total Tagihan</b></td><td class="r"><b>{{ g.total | money }}</b></td></tr></table>
+<p><i>Terbilang:</i> {{ r.terbilang }}</p>
+{% if g.bank_account.bank_name %}<p>Transfer ke {{ g.bank_account.bank_name }} No. {{ g.bank_account.account_number }} a/n {{ g.bank_account.account_name }}</p>{% endif %}
+<p style="margin-top:30px;width:40%;margin-left:60%;text-align:center">Hormat kami,<br><br><br>( ____________________ )</p>
+<p style="font-size:9px;color:#666">Dokumen sintetis untuk demo.</p>
+</body></html>

@@ -1,0 +1,16 @@
+{
+ "doc_id": "syn-inv-0052",
+ "doc_type": "invoice",
+ "source": "synthetic",
+ "template": "invoice_classic",
+ "style": {
+  "money": "id_dec",
+  "date": "short_month"
+ },
+ "dirt": "clean",
+ "degradation": {
+  "level": "clean"
+ },
+ "input": "doc.pdf",
+ "inconsistent": false
+}

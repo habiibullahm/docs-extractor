@@ -1,0 +1,41 @@
+{
+ "doc_type": "faktur_pajak",
+ "tax_invoice_number": "0200012320448207",
+ "date": "2023-02-26",
+ "seller": {
+  "name": "UD Iswahyudi Wacana",
+  "npwp": "215941651623198",
+  "nik": null,
+  "address": "Gg. Raya Setiabudhi No. 39, Denpasar, KS 33343"
+ },
+ "buyer": {
+  "name": "CV Prayoga Safitri",
+  "npwp": "898471391559636",
+  "nik": null,
+  "address": "Jl. Ciwastra No. 7, Tual, BT 59579"
+ },
+ "line_items": [
+  {
+   "description": "Pupuk NPK 50kg",
+   "quantity": 2.0,
+   "unit_price": 520000.0,
+   "discount": null,
+   "total": 1040000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Ban Mobil R15",
+   "quantity": 3.0,
+   "unit_price": 953000.0,
+   "discount": null,
+   "total": 2859000.0,
+   "is_adjustment": false
+  }
+ ],
+ "total": 3899000.0,
+ "discount": 0.0,
+ "dpp": 3899000.0,
+ "ppn": 428890.0,
+ "ppnbm": 0.0,
+ "document_inconsistent": false
+}

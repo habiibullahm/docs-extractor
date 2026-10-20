@@ -1,0 +1,18 @@
+{
+ "doc_id": "syn-fak-0005",
+ "doc_type": "faktur_pajak",
+ "source": "synthetic",
+ "template": "faktur_coretax",
+ "style": {
+  "money": "id_dec",
+  "date": "long"
+ },
+ "dirt": "light",
+ "degradation": {
+  "level": "light",
+  "rotate": -1.54,
+  "jpeg": 80
+ },
+ "input": "input.jpg",
+ "inconsistent": false
+}

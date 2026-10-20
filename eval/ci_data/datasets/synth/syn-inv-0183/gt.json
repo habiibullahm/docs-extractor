@@ -1,0 +1,95 @@
+{
+ "doc_type": "invoice",
+ "invoice_number": "INV-2025111204",
+ "date": "2025-11-01",
+ "due_date": "2025-12-16",
+ "vendor": {
+  "name": "PD Najmudin (Persero) Tbk",
+  "npwp": "321196047220539",
+  "nik": null,
+  "address": "Jalan Cikutra Timur No. 4, Palangkaraya, JB 37087"
+ },
+ "customer": {
+  "name": "PT Irawan Zulkarnain",
+  "npwp": null,
+  "nik": null,
+  "address": "Gg. Dipenogoro No. 1, Medan, Sumatera Selatan 21170"
+ },
+ "line_items": [
+  {
+   "description": "Tinta Printer Epson 003",
+   "quantity": 12.0,
+   "unit_price": 84000.0,
+   "discount": null,
+   "total": 1008000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Jasa Pengiriman Barang",
+   "quantity": 2.0,
+   "unit_price": 1332000.0,
+   "discount": null,
+   "total": 2664000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Meja Kerja Kayu Jati",
+   "quantity": 1.0,
+   "unit_price": 1411000.0,
+   "discount": null,
+   "total": 1411000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Oli Mesin 4L",
+   "quantity": 20.0,
+   "unit_price": 357000.0,
+   "discount": null,
+   "total": 7140000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Hard Disk Eksternal 1TB",
+   "quantity": 1.0,
+   "unit_price": 1034000.0,
+   "discount": null,
+   "total": 1034000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Jasa Pelatihan SDM",
+   "quantity": 3.0,
+   "unit_price": 5604000.0,
+   "discount": null,
+   "total": 16812000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Monitor LED 24 inci",
+   "quantity": 2.0,
+   "unit_price": 1983000.0,
+   "discount": null,
+   "total": 3966000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Ban Mobil R15",
+   "quantity": 2.0,
+   "unit_price": 1037000.0,
+   "discount": null,
+   "total": 2074000.0,
+   "is_adjustment": false
+  }
+ ],
+ "subtotal": 36109000.0,
+ "discount": 0.0,
+ "tax": 4333080.0,
+ "total": 40442080.0,
+ "currency": "IDR",
+ "bank_account": {
+  "bank_name": "Bank Negara Indonesia",
+  "account_number": "4544708231714",
+  "account_name": "PD Najmudin (Persero) Tbk"
+ },
+ "document_inconsistent": false
+}

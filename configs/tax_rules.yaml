@@ -1,0 +1,57 @@
+# Indonesian tax rules used by synthesis and validation.
+# Everything marked TODO(verify) must be checked against official DJP sources
+# (pajak.go.id, PMK / PER-DJP regulations) before relying on it in production.
+
+npwp:
+  # Legacy NPWP: 15 digits, printed as 99.999.999.9-999.999
+  # TODO(verify): no public checksum algorithm is assumed; only length is checked.
+  legacy_length: 15
+  # Since 2024 (PMK 112/2022) individuals use their 16-digit NIK as NPWP and
+  # entities use a 16-digit NPWP (often legacy NPWP prefixed with "0").
+  # TODO(verify): confirm the 16-digit entity format and any check digit.
+  new_length: 16
+  # Sentinel used on faktur for buyers without NPWP (e.g. end consumers).
+  # TODO(verify)
+  zero_values: ["000000000000000", "0000000000000000"]
+
+nik:
+  length: 16
+
+faktur_serial:
+  # Legacy e-Faktur: kode transaksi (2) + status (1) + "." + kode cabang (3) + "-" + tahun (2) + "." + nomor urut (8)
+  # e.g. 010.000-24.12345678 -> 16 digits. TODO(verify)
+  legacy:
+    digits: 16
+    pattern: '^\d{3}\.\d{3}-\d{2}\.\d{8}$'
+  # Coretax (from 2025): 17-digit number. TODO(verify exact structure)
+  coretax:
+    digits: 17
+    pattern: '^\d{17}$'
+
+ppn:
+  # Each scheme: effective PPN = round(dpp * rate), with dpp = harga_jual * dpp_factor.
+  # TODO(verify) all schemes against current PMK (PMK 131/2024 for 2025 rules).
+  default_scheme: ppn_12_dpp_nilai_lain
+  schemes:
+    ppn_11:
+      rate: 0.11
+      dpp_factor: 1.0
+      valid_from: "2022-04-01"
+      valid_to: "2024-12-31"
+    ppn_12_dpp_nilai_lain:
+      # Non-luxury goods/services from 2025: 12% x (11/12 x harga jual) = 11% effective
+      rate: 0.12
+      dpp_factor: 0.9166666667
+      valid_from: "2025-01-01"
+    ppn_12_luxury:
+      rate: 0.12
+      dpp_factor: 1.0
+      valid_from: "2025-01-01"
+  # Allowed absolute rounding difference in IDR when checking PPN = rate * DPP
+  rounding_tolerance: 1.0
+
+receipt:
+  # Common Indonesian restaurant tax (PB1, regional) and service charge.
+  # TODO(verify): PB1 is regional (typically 10%), not PPN.
+  pb1_rate: 0.10
+  service_rates: [0.0, 0.05, 0.075, 0.10]

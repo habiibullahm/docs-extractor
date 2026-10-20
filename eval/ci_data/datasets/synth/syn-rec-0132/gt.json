@@ -1,0 +1,80 @@
+{
+ "doc_type": "receipt",
+ "store_name": "Toko Wibowo",
+ "store_address": "Jl. H.J Maemunah No. 7, Kotamobagu",
+ "date": "2024-08-12",
+ "time": "12:25",
+ "line_items": [
+  {
+   "description": "Dimsum Ayam",
+   "quantity": 1.0,
+   "unit_price": 22600.0,
+   "discount": null,
+   "total": 22600.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Bakso Urat",
+   "quantity": 12.0,
+   "unit_price": 25000.0,
+   "discount": null,
+   "total": 300000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Ayam Geprek",
+   "quantity": 12.0,
+   "unit_price": 25400.0,
+   "discount": null,
+   "total": 304800.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Croissant Butter",
+   "quantity": 2.0,
+   "unit_price": 34000.0,
+   "discount": null,
+   "total": 68000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Teh Botol Sosro",
+   "quantity": 20.0,
+   "unit_price": 8900.0,
+   "discount": null,
+   "total": 178000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Roti Bakar Coklat",
+   "quantity": 1.0,
+   "unit_price": 21800.0,
+   "discount": null,
+   "total": 21800.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Matcha Latte",
+   "quantity": 1.0,
+   "unit_price": 34500.0,
+   "discount": null,
+   "total": 34500.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "DISKON MEMBER",
+   "quantity": null,
+   "unit_price": null,
+   "discount": null,
+   "total": -93000.0,
+   "is_adjustment": true
+  }
+ ],
+ "subtotal": 836700.0,
+ "discount": null,
+ "tax": null,
+ "service_charge": null,
+ "total": 836700.0,
+ "payment_method": "QRIS",
+ "document_inconsistent": false
+}

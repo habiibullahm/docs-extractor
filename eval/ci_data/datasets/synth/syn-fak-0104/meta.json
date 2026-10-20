@@ -1,0 +1,16 @@
+{
+ "doc_id": "syn-fak-0104",
+ "doc_type": "faktur_pajak",
+ "source": "synthetic",
+ "template": "faktur_efaktur",
+ "style": {
+  "money": "id",
+  "date": "long"
+ },
+ "dirt": "clean",
+ "degradation": {
+  "level": "clean"
+ },
+ "input": "doc.pdf",
+ "inconsistent": false
+}

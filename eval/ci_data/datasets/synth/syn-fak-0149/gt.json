@@ -1,0 +1,41 @@
+{
+ "doc_type": "faktur_pajak",
+ "tax_invoice_number": "0300012447219705",
+ "date": "2024-10-04",
+ "seller": {
+  "name": "Perum Irawan Pratama Tbk",
+  "npwp": "0927589551687409",
+  "nik": null,
+  "address": "Jalan W.R. Supratman No. 6, Semarang, JK 34785"
+ },
+ "buyer": {
+  "name": "Perum Waluyo",
+  "npwp": "238021462961367",
+  "nik": null,
+  "address": "Gang Veteran No. 879, Dumai, Kalimantan Barat 48704"
+ },
+ "line_items": [
+  {
+   "description": "Kabel NYM 3x2.5 50m",
+   "quantity": 1.0,
+   "unit_price": 720000.0,
+   "discount": null,
+   "total": 720000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Meja Kerja Kayu Jati",
+   "quantity": 1.0,
+   "unit_price": 1364000.0,
+   "discount": null,
+   "total": 1364000.0,
+   "is_adjustment": false
+  }
+ ],
+ "total": 2084000.0,
+ "discount": 41700.0,
+ "dpp": 2042300.0,
+ "ppn": 224653.0,
+ "ppnbm": 0.0,
+ "document_inconsistent": false
+}

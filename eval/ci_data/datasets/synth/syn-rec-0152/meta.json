@@ -1,0 +1,23 @@
+{
+ "doc_id": "syn-rec-0152",
+ "doc_type": "receipt",
+ "source": "synthetic",
+ "template": "receipt_thermal",
+ "style": {
+  "money": "id",
+  "date": "long"
+ },
+ "dirt": "heavy",
+ "degradation": {
+  "level": "heavy",
+  "perspective": 0.05,
+  "shadow": true,
+  "rotate": 0.72,
+  "blur": 5,
+  "noise": 14,
+  "downscale": 0.79,
+  "jpeg": 40
+ },
+ "input": "input.jpg",
+ "inconsistent": false
+}

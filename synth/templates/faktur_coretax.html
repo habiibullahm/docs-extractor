@@ -1,0 +1,39 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>
+@page { size: A4; margin: 12mm; }
+body { font-family: "DejaVu Sans", Verdana, sans-serif; font-size: 10px; color: #111; }
+.head { display: flex; justify-content: space-between; border-bottom: 3px solid #1f3b73; padding-bottom: 6px; }
+.head h1 { font-size: 18px; color: #1f3b73; margin: 0; }
+.box { border: 1px solid #9aa; border-radius: 4px; padding: 6px 8px; margin-top: 8px; }
+.box h3 { margin: 0 0 4px; font-size: 11px; color: #1f3b73; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.kv { display: grid; grid-template-columns: 70px 1fr; row-gap: 2px; }
+table { border-collapse: collapse; width: 100%; margin-top: 8px; }
+th { background: #1f3b73; color: #fff; padding: 5px; font-weight: normal; }
+td { border-bottom: 1px solid #ccd; padding: 4px 5px; }
+.r { text-align: right; }
+.sum td { border: none; padding: 3px 5px; }
+.sum .lbl { text-align: right; width: 75%; }
+.foot { margin-top: 16px; font-size: 8.5px; color: #555; }
+</style></head><body>
+<div class="head"><h1>FAKTUR PAJAK</h1><div class="r">Nomor Faktur Pajak<br><b style="font-size:13px">{{ r.printed_serial }}</b><br>Tanggal: {{ g.date | tanggal }}</div></div>
+<div class="grid">
+<div class="box"><h3>Penjual (PKP)</h3><div class="kv">
+<span>Nama</span><span>{{ g.seller.name }}</span><span>NPWP</span><span>{{ g.seller.npwp | npwp }}</span><span>Alamat</span><span>{{ g.seller.address }}</span></div></div>
+<div class="box"><h3>Pembeli</h3><div class="kv">
+<span>Nama</span><span>{{ g.buyer.name }}</span><span>NPWP</span><span>{{ g.buyer.npwp | npwp }}</span>
+{% if g.buyer.nik %}<span>NIK</span><span>{{ g.buyer.nik }}</span>{% endif %}<span>Alamat</span><span>{{ g.buyer.address }}</span></div></div>
+</div>
+<table><tr><th>No</th><th style="text-align:left">Nama Barang/Jasa</th><th>Jumlah</th><th class="r">Harga Satuan (Rp)</th><th class="r">Potongan (Rp)</th><th class="r">Harga Jual (Rp)</th></tr>
+{% for it in g.line_items %}<tr><td>{{ loop.index }}</td><td>{{ it.description }}</td><td style="text-align:center">{{ it.quantity | qty }}</td>
+<td class="r">{{ it.unit_price | money }}</td><td class="r">{{ it.discount | money if it.discount else '0' }}</td><td class="r">{{ it.total | money }}</td></tr>{% endfor %}
+</table>
+<table class="sum">
+<tr><td class="lbl">Harga Jual / Penggantian</td><td class="r">{{ g.total | money }}</td></tr>
+<tr><td class="lbl">Potongan Harga</td><td class="r">{{ g.discount | money }}</td></tr>
+<tr><td class="lbl"><b>Dasar Pengenaan Pajak (DPP)</b></td><td class="r"><b>{{ g.dpp | money }}</b></td></tr>
+<tr><td class="lbl">Jumlah PPN</td><td class="r">{{ g.ppn | money }}</td></tr>
+<tr><td class="lbl">Jumlah PPnBM</td><td class="r">{{ g.ppnbm | money }}</td></tr>
+</table>
+<div class="foot">Dibuat oleh {{ r.signer }} — {{ r.city }}. Dokumen ini SINTETIS untuk keperluan demo/portofolio, bukan faktur pajak resmi.</div>
+</body></html>

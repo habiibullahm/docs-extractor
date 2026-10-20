@@ -1,0 +1,87 @@
+{
+ "doc_type": "invoice",
+ "invoice_number": "INV/2024/VII/871",
+ "date": "2024-03-02",
+ "due_date": "2024-04-16",
+ "vendor": {
+  "name": "CV Nainggolan Kurniawan",
+  "npwp": "405089273961597",
+  "nik": null,
+  "address": "Jalan Bangka Raya No. 98, Padang Sidempuan, Bali 26176"
+ },
+ "customer": {
+  "name": "PD Natsir",
+  "npwp": null,
+  "nik": null,
+  "address": "Jl. Raya Ujungberung No. 9, Sungai Penuh, Kalimantan Utara 80405"
+ },
+ "line_items": [
+  {
+   "description": "Beras Premium 25kg",
+   "quantity": 2.0,
+   "unit_price": 374000.0,
+   "discount": null,
+   "total": 748000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Lisensi Software Akuntansi",
+   "quantity": 3.0,
+   "unit_price": 9498000.0,
+   "discount": null,
+   "total": 28494000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Jasa Pelatihan SDM",
+   "quantity": 3.0,
+   "unit_price": 13718000.0,
+   "discount": null,
+   "total": 41154000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Kursi Kantor Ergonomis",
+   "quantity": 3.0,
+   "unit_price": 1970000.0,
+   "discount": null,
+   "total": 5910000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Jasa Instalasi Jaringan",
+   "quantity": 1.0,
+   "unit_price": 4987000.0,
+   "discount": null,
+   "total": 4987000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Jasa Pengiriman Barang",
+   "quantity": 3.0,
+   "unit_price": 989000.0,
+   "discount": null,
+   "total": 2967000.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Air Mineral Galon",
+   "quantity": 2.0,
+   "unit_price": 19200.0,
+   "discount": null,
+   "total": 38400.0,
+   "is_adjustment": false
+  }
+ ],
+ "subtotal": 84298400.0,
+ "discount": 0.0,
+ "tax": 9272824.0,
+ "total": 93571224.0,
+ "currency": "IDR",
+ "bank_account": {
+  "bank_name": "Bank Central Asia",
+  "account_number": "3567078977554",
+  "account_name": "CV Nainggolan Kurniawan"
+ },
+ "document_inconsistent": false
+}

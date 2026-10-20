@@ -1,0 +1,63 @@
+{
+ "doc_type": "invoice",
+ "invoice_number": "SI-2025056250",
+ "date": "2025-05-31",
+ "due_date": "2025-07-30",
+ "vendor": {
+  "name": "PD Megantara",
+  "npwp": "0342362203347424",
+  "nik": null,
+  "address": "Gg. Rajawali Barat No. 813, Banda Aceh, Bali 13211"
+ },
+ "customer": {
+  "name": "PD Lazuardi Tbk",
+  "npwp": null,
+  "nik": null,
+  "address": "Gg. Sadang Serang No. 53, Pagaralam, SU 70755"
+ },
+ "line_items": [
+  {
+   "description": "Laptop Lenovo IdeaPad Slim 3",
+   "quantity": 2.0,
+   "unit_price": 495.94,
+   "discount": null,
+   "total": 991.88,
+   "is_adjustment": false
+  },
+  {
+   "description": "Cat Tembok 5kg",
+   "quantity": 3.0,
+   "unit_price": 13.56,
+   "discount": null,
+   "total": 40.68,
+   "is_adjustment": false
+  },
+  {
+   "description": "Jasa Pelatihan SDM",
+   "quantity": 1.0,
+   "unit_price": 334.62,
+   "discount": null,
+   "total": 334.62,
+   "is_adjustment": false
+  },
+  {
+   "description": "Jasa Instalasi Jaringan",
+   "quantity": 1.0,
+   "unit_price": 354.56,
+   "discount": null,
+   "total": 354.56,
+   "is_adjustment": false
+  }
+ ],
+ "subtotal": 1721.74,
+ "discount": 172.17,
+ "tax": 0.0,
+ "total": 1549.57,
+ "currency": "USD",
+ "bank_account": {
+  "bank_name": "Bank Central Asia",
+  "account_number": "3796868008529",
+  "account_name": "PD Megantara"
+ },
+ "document_inconsistent": false
+}

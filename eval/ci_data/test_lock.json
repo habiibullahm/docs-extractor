@@ -1,0 +1,5 @@
+{
+ "n_test": 0,
+ "test_ids_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+ "note": "Test split is locked: never use it for prompt tuning. eval/run.py requires --final to score it."
+}

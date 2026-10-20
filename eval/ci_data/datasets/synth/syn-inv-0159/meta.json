@@ -1,0 +1,23 @@
+{
+ "doc_id": "syn-inv-0159",
+ "doc_type": "invoice",
+ "source": "synthetic",
+ "template": "invoice_modern",
+ "style": {
+  "money": "id",
+  "date": "dash"
+ },
+ "dirt": "heavy",
+ "degradation": {
+  "level": "heavy",
+  "perspective": 0.05,
+  "shadow": true,
+  "rotate": -3.89,
+  "blur": 5,
+  "noise": 14,
+  "downscale": 0.62,
+  "jpeg": 40
+ },
+ "input": "input.jpg",
+ "inconsistent": false
+}

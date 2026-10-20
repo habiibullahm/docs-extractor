@@ -1,0 +1,42 @@
+# Rule-based validation. Each rule can be disabled or have its severity changed.
+# severity: error -> strong penalty and triggers repair pass; warning -> mild penalty.
+
+rules:
+  line_items_sum:
+    enabled: true
+    severity: error
+    abs_tolerance: 2.0       # IDR
+    rel_tolerance: 0.001
+  totals_arithmetic:
+    enabled: true
+    severity: error
+    abs_tolerance: 2.0
+    rel_tolerance: 0.001
+  ppn_rate:
+    enabled: true
+    severity: error
+  npwp_format:
+    enabled: true
+    severity: error
+  nik_format:
+    enabled: true
+    severity: warning
+  faktur_serial_format:
+    enabled: true
+    severity: warning
+  date_plausible:
+    enabled: true
+    severity: error
+    max_age_years: 10
+    allow_future_days: 1
+  due_after_issue:
+    enabled: true
+    severity: warning
+  required_fields:
+    enabled: true
+    severity: error
+
+critical_fields:
+  faktur_pajak: [tax_invoice_number, date, seller.npwp, buyer.name, dpp, ppn, total]
+  invoice: [invoice_number, date, vendor.name, customer.name, total]
+  receipt: [store_name, date, total]

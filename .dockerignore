@@ -1,0 +1,7 @@
+.venv
+.git
+data
+eval/reports/*/
+!eval/reports/summary.json
+**/__pycache__
+.pytest_cache

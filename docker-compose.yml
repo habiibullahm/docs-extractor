@@ -1,0 +1,59 @@
+# docker compose up  ->  UI http://localhost:7860 , API http://localhost:8000/docs
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: docex
+      POSTGRES_PASSWORD: docex
+      POSTGRES_DB: docex
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U docex"]
+      interval: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      retries: 20
+
+  api:
+    build: .
+    command: uvicorn docex.api.app:app --host 0.0.0.0 --port 8000
+    env_file: [{path: .env, required: false}]
+    environment: &env
+      DATABASE_URL: postgresql+psycopg://docex:docex@postgres:5432/docex
+      REDIS_URL: redis://redis:6379/0
+      QUEUE_BACKEND: rq
+      DOCEX_STORAGE_DIR: /app/data/uploads
+    volumes: [uploads:/app/data/uploads]
+    ports: ["8000:8000"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+
+  worker:
+    build: .
+    command: rq worker docex --url redis://redis:6379/0
+    env_file: [{path: .env, required: false}]
+    environment: *env
+    volumes: [uploads:/app/data/uploads]
+    healthcheck: {disable: true}
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+
+  ui:
+    build: .
+    command: streamlit run ui/app.py --server.port 7860 --server.address 0.0.0.0 --server.headless true
+    environment:
+      DOCEX_API_URL: http://api:8000
+    ports: ["7860:7860"]
+    healthcheck: {disable: true}
+    depends_on: [api]
+
+volumes:
+  pgdata:
+  uploads:

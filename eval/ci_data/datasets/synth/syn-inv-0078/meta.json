@@ -1,0 +1,20 @@
+{
+ "doc_id": "syn-inv-0078",
+ "doc_type": "invoice",
+ "source": "synthetic",
+ "template": "invoice_modern",
+ "style": {
+  "money": "id",
+  "date": "short_month"
+ },
+ "dirt": "medium",
+ "degradation": {
+  "level": "medium",
+  "rotate": 0.9,
+  "blur": 3,
+  "noise": 10,
+  "jpeg": 60
+ },
+ "input": "input.jpg",
+ "inconsistent": false
+}

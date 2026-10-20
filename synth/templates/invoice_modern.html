@@ -1,0 +1,34 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>
+@page { size: A4; margin: 0; }
+body { font-family: "Helvetica Neue", Arial, sans-serif; font-size: 11px; margin: 0; color: #222; }
+.band { background: {{ r.color }}; color: #fff; padding: 22px 28px; display: flex; justify-content: space-between; }
+.band h1 { margin: 0; font-size: 30px; letter-spacing: 3px; }
+.wrap { padding: 18px 28px; }
+.cols { display: flex; justify-content: space-between; }
+.muted { color: #777; font-size: 9.5px; text-transform: uppercase; }
+table { width: 100%; border-collapse: collapse; margin-top: 14px; }
+th { text-align: left; border-bottom: 2px solid {{ r.color }}; padding: 6px 4px; }
+td { padding: 6px 4px; border-bottom: 1px solid #eee; }
+.r { text-align: right; }
+.tot { width: 45%; margin-left: 55%; }
+.tot td { border: none; padding: 3px 4px; }
+.grand td { font-size: 14px; font-weight: bold; border-top: 2px solid {{ r.color }}; }
+</style></head><body>
+<div class="band"><div><h1>INVOICE</h1><div>{{ g.vendor.name }}</div></div>
+<div class="r">No. <b>{{ g.invoice_number }}</b><br>Tanggal: {{ g.date | tanggal }}<br>Jatuh Tempo: {{ g.due_date | tanggal }}</div></div>
+<div class="wrap">
+<div class="cols"><div><div class="muted">Dari</div><b>{{ g.vendor.name }}</b><br>{{ g.vendor.address }}{% if g.vendor.npwp %}<br>NPWP: {{ g.vendor.npwp | npwp }}{% endif %}</div>
+<div style="text-align:right"><div class="muted">Ditagihkan kepada</div><b>{{ g.customer.name }}</b><br>{{ g.customer.address }}</div></div>
+<table><tr><th>Deskripsi</th><th class="r">Qty</th><th class="r">Harga ({{ g.currency }})</th><th class="r">Jumlah ({{ g.currency }})</th></tr>
+{% for it in g.line_items %}<tr><td>{{ it.description }}</td><td class="r">{{ it.quantity | qty }}</td><td class="r">{{ it.unit_price | money }}</td><td class="r">{{ it.total | money }}</td></tr>{% endfor %}
+</table>
+<table class="tot">
+<tr><td>Subtotal</td><td class="r">{{ g.subtotal | money }}</td></tr>
+<tr><td>Diskon</td><td class="r">{{ g.discount | money }}</td></tr>
+<tr><td>PPN {{ (r.tax_rate*100)|round|int }}%</td><td class="r">{{ g.tax | money }}</td></tr>
+<tr class="grand"><td>TOTAL</td><td class="r">{{ g.currency_symbol }} {{ g.total | money }}</td></tr>
+</table>
+{% if g.bank_account.bank_name %}<p><span class="muted">Pembayaran ke</span><br>{{ g.bank_account.bank_name }}<br>No. Rek: {{ g.bank_account.account_number }}<br>a.n. {{ g.bank_account.account_name }}</p>{% endif %}
+<p style="color:#888">{{ r.notes }}<br>Dokumen sintetis untuk demo.</p>
+</div></body></html>

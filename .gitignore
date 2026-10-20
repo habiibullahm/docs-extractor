@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.env
+# datasets and generated files are not committed: rebuild with `python -m synth.build`
+data/*
+!data/manifest.json
+!data/test_lock.json
+!data/README.md
+eval/reports/*/results.jsonl

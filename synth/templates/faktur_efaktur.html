@@ -1,0 +1,43 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>
+@page { size: A4; margin: 14mm; }
+body { font-family: Arial, Helvetica, sans-serif; font-size: 10.5px; color: #000; }
+h1 { text-align: center; font-size: 16px; margin: 0 0 6px; letter-spacing: 1px; }
+table { border-collapse: collapse; width: 100%; }
+td, th { border: 1px solid #000; padding: 4px 6px; vertical-align: top; }
+.sec { background: #eee; font-weight: bold; }
+.r { text-align: right; } .c { text-align: center; }
+.nb td { border: none; padding: 2px 4px; }
+.sign { margin-top: 18px; width: 45%; margin-left: 55%; text-align: center; }
+.small { font-size: 9px; }
+</style></head><body>
+<h1>Faktur Pajak</h1>
+<table>
+<tr><td colspan="6">Kode dan Nomor Seri Faktur Pajak : <b>{{ r.printed_serial }}</b></td></tr>
+<tr><td colspan="6" class="sec">Pengusaha Kena Pajak</td></tr>
+<tr><td colspan="6"><table class="nb">
+ <tr><td style="width:90px">Nama</td><td>: {{ g.seller.name }}</td></tr>
+ <tr><td>Alamat</td><td>: {{ g.seller.address }}</td></tr>
+ <tr><td>NPWP</td><td>: {{ g.seller.npwp | npwp }}</td></tr></table></td></tr>
+<tr><td colspan="6" class="sec">Pembeli Barang Kena Pajak / Penerima Jasa Kena Pajak</td></tr>
+<tr><td colspan="6"><table class="nb">
+ <tr><td style="width:90px">Nama</td><td>: {{ g.buyer.name }}</td></tr>
+ <tr><td>Alamat</td><td>: {{ g.buyer.address }}</td></tr>
+ <tr><td>NPWP</td><td>: {{ g.buyer.npwp | npwp }}</td></tr>
+ {% if g.buyer.nik %}<tr><td>NIK</td><td>: {{ g.buyer.nik }}</td></tr>{% endif %}</table></td></tr>
+<tr><th class="c" style="width:28px">No.</th><th>Nama Barang Kena Pajak / Jasa Kena Pajak</th><th class="c">Qty</th>
+<th class="r">Harga Satuan</th><th class="r">Diskon</th><th class="r">Harga Jual / Penggantian (Rp)</th></tr>
+{% for it in g.line_items %}
+<tr><td class="c">{{ loop.index }}</td><td>{{ it.description }}</td><td class="c">{{ it.quantity | qty }}</td>
+<td class="r">{{ it.unit_price | money }}</td><td class="r">{{ it.discount | money if it.discount else '-' }}</td><td class="r">{{ it.total | money }}</td></tr>
+{% endfor %}
+<tr><td colspan="5">Harga Jual / Penggantian / Uang Muka / Termin</td><td class="r">{{ g.total | money }}</td></tr>
+<tr><td colspan="5">Dikurangi Potongan Harga</td><td class="r">{{ g.discount | money }}</td></tr>
+<tr><td colspan="5">Dikurangi Uang Muka yang telah diterima</td><td class="r">-</td></tr>
+<tr><td colspan="5">Dasar Pengenaan Pajak</td><td class="r">{{ g.dpp | money }}</td></tr>
+<tr><td colspan="5">Total PPN</td><td class="r">{{ g.ppn | money }}</td></tr>
+<tr><td colspan="5">Total PPnBM (Pajak Penjualan atas Barang Mewah)</td><td class="r">{{ g.ppnbm | money }}</td></tr>
+</table>
+<div class="sign">{{ r.city }}, {{ g.date | tanggal }}<br><br><br><br><u>{{ r.signer }}</u></div>
+<p class="small">Sesuai dengan ketentuan yang berlaku, Direktorat Jenderal Pajak mengatur bahwa Faktur Pajak ini telah ditandatangani secara elektronik sehingga tidak diperlukan tanda tangan basah.<br>DOKUMEN SINTETIS — UNTUK DEMO, BUKAN FAKTUR ASLI</p>
+</body></html>

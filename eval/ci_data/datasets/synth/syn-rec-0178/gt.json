@@ -1,0 +1,40 @@
+{
+ "doc_type": "receipt",
+ "store_name": "Bakery Jailani",
+ "store_address": "Gang Dr. Djunjunan No. 132, Dumai",
+ "date": "2026-05-11",
+ "time": "11:32",
+ "line_items": [
+  {
+   "description": "Aqua 600ml",
+   "quantity": 1.0,
+   "unit_price": 6100.0,
+   "discount": null,
+   "total": 6100.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Croissant Butter",
+   "quantity": 4.0,
+   "unit_price": 25300.0,
+   "discount": null,
+   "total": 101200.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Bakso Urat",
+   "quantity": 5.0,
+   "unit_price": 22300.0,
+   "discount": null,
+   "total": 111500.0,
+   "is_adjustment": false
+  }
+ ],
+ "subtotal": 218800.0,
+ "discount": null,
+ "tax": 21880.0,
+ "service_charge": null,
+ "total": 240680.0,
+ "payment_method": "TUNAI",
+ "document_inconsistent": false
+}

@@ -1,0 +1,49 @@
+{
+ "doc_type": "faktur_pajak",
+ "tax_invoice_number": "0400002370243765",
+ "date": "2023-04-28",
+ "seller": {
+  "name": "PT Pangestu Aryani",
+  "npwp": "628417722560531",
+  "nik": null,
+  "address": "Jalan Joyoboyo No. 2, Jambi, BT 51142"
+ },
+ "buyer": {
+  "name": "CV Uwais Puspasari (Persero) Tbk",
+  "npwp": "340266502374167",
+  "nik": null,
+  "address": "Jl. Dipenogoro No. 9, Cilegon, BA 10021"
+ },
+ "line_items": [
+  {
+   "description": "Kertas HVS A4 80gsm",
+   "quantity": 3.0,
+   "unit_price": 54000.0,
+   "discount": 16200.0,
+   "total": 145800.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Jasa Pengiriman Barang",
+   "quantity": 1.0,
+   "unit_price": 753000.0,
+   "discount": 75300.0,
+   "total": 677700.0,
+   "is_adjustment": false
+  },
+  {
+   "description": "Jasa Pembersihan Gedung",
+   "quantity": 3.0,
+   "unit_price": 3383000.0,
+   "discount": null,
+   "total": 10149000.0,
+   "is_adjustment": false
+  }
+ ],
+ "total": 10972500.0,
+ "discount": 0.0,
+ "dpp": 10972500.0,
+ "ppn": 1206975.0,
+ "ppnbm": 0.0,
+ "document_inconsistent": false
+}
