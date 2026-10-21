@@ -421,7 +421,8 @@ function fieldRow(path, en, idLabel, kind, ex, critical, corrected) {
   const confText = corrected ? "nilai diisi oleh pemeriksa" : value == null ? "tidak ditemukan" : `${low ? "kurang yakin, " : ""}tingkat yakin ${num2(conf)}`;
   const confCell = corrected ? `<div class="conf reviewed" title="${confText}"><span class="cv">dicek</span></div>`
     : `<div class="conf c${lvl}" title="${confText}"><span class="meter" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-      <span class="cv" aria-hidden="true">${value == null ? "–" : num2(conf)}</span><span class="sr">${confText}</span></div>`;
+      <span class="cv" aria-hidden="true">${value == null ? "–" : num2(conf)}</span><span class="sr" data-orig="${confText}">${confText}</span>
+      <span class="st st-checked">sudah dicek</span><span class="st st-edited">diubah</span></div>`;
   return `<div class="field${low ? " low" : ""}" data-field="${path}">
     <label for="${id}">${esc(en)}${idLabel ? `<small>${esc(idLabel)}</small>` : ""}${critical ? `<span class="tag">penting</span>` : ""}</label>
     <div class="fv">${adorn}${input}</div>
@@ -495,7 +496,7 @@ function renderDoc(d) {
       <div class="fields" id="fields">
         <div class="verdict">
           <p class="reason">${esc(humanReason(d.route_reason, type))}.${d.status === "failed" ? ` ${esc(failureText(d.error))}` : ""}
-            ${!auto && !decided ? "Cocokkan kolom yang ditandai dengan scan, lalu pilih Setujui, Simpan koreksi, atau Tolak." : ""}</p>
+            ${!auto && !decided ? "Cocokkan kolom yang ditandai dengan scan. <kbd>Enter</kbd> di sebuah kolom pindah ke kolom berikutnya yang perlu dicek. Lalu pilih Setujui, Simpan koreksi, atau Tolak." : ""}</p>
           ${issues ? `<ul class="issues">${issues}</ul>` : ""}
         </div>
         ${groups}
@@ -515,6 +516,7 @@ function renderDoc(d) {
     <div class="actionbar">
       <label class="reviewer" for="reviewer">Pemeriksa <input id="reviewer" value="${esc(localGet("reviewer") || "demo")}" autocomplete="off"></label>
       ${qi >= 0 ? `<span class="navhint">${qi + 1} dari ${state.queue.length} di antrean. <kbd>j</kbd> berikutnya, <kbd>k</kbd> sebelumnya</span>` : ""}
+      <span class="sweep" id="sweep" role="status"></span>
       <span class="result" id="result">${decided ? `${DECIDED[decided]} oleh ${esc(d.review.reviewer)}${d.review.changed_fields?.length ? `, ${d.review.changed_fields.length} kolom diubah` : ""}.` : ""}</span>
       <span class="spacer"></span>
       <button type="button" class="danger" id="reject" title="Pintasan: R">Tolak<span class="k">R</span></button>
@@ -546,6 +548,15 @@ function renderDoc(d) {
   $("#reject").onclick = () => decide("reject");
   $("#save").onclick = () => decide("correct");
   updateSum();
+  // Fields that need a look: weak, not found, or named by a validation issue. Enter sweeps through them.
+  state.checked = new Set();
+  const flagged = new Set((d.issues || []).flatMap((i) => i.fields || []));
+  if (!decided) {
+    for (const row of view.querySelectorAll(".field")) {
+      if (row.classList.contains("low") || flagged.has(row.dataset.field)) row.dataset.needs = "1";
+    }
+  }
+  updateSweep();
   if (!auto && !decided) {
     const weakest = (d.route_reason || "").match(/'([^']+)'/)?.[1];
     if (weakest && weakest !== "line_items") focusField(weakest, false, false);
@@ -577,9 +588,57 @@ function onEdit(e) {
   const el = e.target;
   if (!el.dataset?.path) return;
   const changed = el.value.trim() !== (state.initial[el.dataset.path] ?? "");
-  (el.closest(".field") || el.closest("td")).classList.toggle("edited", changed);
+  const holder = el.closest(".field") || el.closest("td");
+  holder.classList.toggle("edited", changed);
+  if (holder.classList.contains("field")) { paintRowState(holder); updateSweep(); }
   updateDirty();
   if (el.closest("#items-body")) updateSum();
+}
+
+// ---------------------------------------------------------------- sweep through the fields that need a look
+const needsRows = () => [...document.querySelectorAll("#fields .field[data-needs]")];
+const isResolved = (row) => row.classList.contains("checked") || row.classList.contains("edited");
+// The visible words replace the confidence for screen readers too, so they never hear a stale score.
+function paintRowState(row) {
+  const sr = row.querySelector(".conf .sr");
+  if (sr) sr.textContent = isResolved(row) ? "" : sr.dataset.orig;
+}
+function updateSweep() {
+  const box = $("#sweep");
+  if (!box) return;
+  const rows = needsRows();
+  const done = rows.filter(isResolved).length;
+  box.textContent = rows.length ? `${done} dari ${rows.length} kolom sudah dicek` : "";
+}
+function sweep(row, back) {
+  const rows = needsRows();
+  const after = (r) => row.compareDocumentPosition(r) & Node.DOCUMENT_POSITION_FOLLOWING;
+  if (!back && row.dataset.needs) {
+    row.classList.add("checked");
+    state.checked.add(row.dataset.field);
+    paintRowState(row);
+  }
+  let target;
+  if (back) target = rows.filter((r) => r !== row && !after(r)).at(-1);
+  else target = rows.find((r) => r !== row && after(r) && !isResolved(r)) || rows.find((r) => r !== row && !isResolved(r));
+  updateSweep();
+  if (target) { focusField(target.dataset.field); return; }
+  if (back) return;
+  // Nothing left to check: leave the field so a, s and r work, and say what is next.
+  document.activeElement?.blur();
+  const box = $("#sweep");
+  if (box) box.textContent = "Semua kolom yang ditandai sudah dicek. Tekan A untuk menyetujui atau S untuk menyimpan koreksi.";
+}
+// Up and Down in the line items table move within the same column.
+function moveInItems(input, down) {
+  const td = input.closest("td");
+  const tr = td.parentElement;
+  const next = down ? tr.nextElementSibling : tr.previousElementSibling;
+  const target = next?.cells[td.cellIndex]?.querySelector("input");
+  if (!target) return false;
+  target.focus();
+  target.select();
+  return true;
 }
 function editedCount() {
   const fields = document.querySelectorAll("#fields .edited").length;
@@ -698,6 +757,20 @@ async function loadMetrics() {
 document.addEventListener("keydown", (e) => {
   const typing = e.target.closest?.("input, textarea, select");
   if (e.key === "Escape" && typing) { e.target.blur(); return; }
+  if (typing && !e.isComposing && !$("#view-doc").hidden && state.doc) {
+    const row = e.target.closest("#fields .field");
+    if (e.key === "Enter" && row && e.target.matches("input, textarea")) {
+      // In an address box a plain Enter still starts a new line; Ctrl+Enter sweeps like Enter does elsewhere.
+      if (e.target.tagName === "TEXTAREA" && !(e.ctrlKey || e.metaKey)) return;
+      e.preventDefault();
+      sweep(row, e.shiftKey);
+      return;
+    }
+    if ((e.key === "ArrowDown" || e.key === "ArrowUp") && e.target.matches("#items-body input") && !(e.ctrlKey || e.metaKey || e.altKey || e.shiftKey)) {
+      if (moveInItems(e.target, e.key === "ArrowDown")) e.preventDefault();
+      return;
+    }
+  }
   if (typing || e.metaKey || e.ctrlKey || e.altKey || $("#view-doc").hidden || !state.doc) return;
   const k = e.key.toLowerCase();
   if (k === "a") decide("approve");
@@ -705,7 +778,8 @@ document.addEventListener("keydown", (e) => {
   else if (k === "s") decide("correct");
   else if (k === "/") {
     e.preventDefault();
-    document.querySelector("#fields .field.target input, #fields .field.target textarea, #fields .field.low input, #fields .field.low textarea")?.focus();
+    const row = document.querySelector("#fields .field.target") || needsRows().find((r) => !isResolved(r));
+    row?.querySelector("input, textarea")?.focus();
   }
   else if (k === "j" || k === "k") {
     const i = state.queue.findIndex((q) => q.id === state.doc.id);
