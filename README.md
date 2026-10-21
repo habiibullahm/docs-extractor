@@ -336,6 +336,11 @@ on the server (the script passes the file with `--env-file` and never prints it;
 B/C document a visitor runs uses the free-tier quota, and the API is rate-limited per IP. Clone with git on the server rather than copying files from Windows:
 `.gitattributes` keeps shell scripts on LF line endings.
 
+If Gemini answers `User location is not supported for the API use`, Google rejects the VPS's network (the check
+uses the IP the call leaves from). Set `GEMINI_BASE_URL` in the same `.env` to a reverse proxy that forwards
+`/v1beta/*`; `deploy/gemini-proxy/` has a Cloudflare Worker (the live demo uses one) and an nginx example. The
+Worker holds no key. Open its address first: it must show `gemini-proxy ok`.
+
 `deploy.yml` can also push the same container to a Hugging Face Docker Space when the `HF_TOKEN` secret is set.
 
 ## Repository layout
