@@ -183,7 +183,12 @@ class OpenAICompatibleProvider:
             raise ProviderError(f"invalid JSON from model: {e}") from e
 
     def _post(self, body: dict[str, Any]):
-        return self._http.post("/chat/completions", json=body)
+        import httpx
+
+        try:
+            return self._http.post("/chat/completions", json=body)
+        except httpx.TransportError as e:  # timeouts and connection failures
+            raise ProviderError(f"{self.name} connection error: {type(e).__name__}: {e}") from e
 
 
 class OpenAIProvider(OpenAICompatibleProvider):
@@ -258,9 +263,20 @@ class GeminiProvider(OpenAICompatibleProvider):
             self._sleep(slot - now)
 
     def _post(self, body: dict[str, Any]):
+        import httpx
+
+        timeouts_left = 1  # a hung request costs a whole timeout, so it gets one more try, not max_retries
         for attempt in range(self.max_retries + 1):
             self._wait_for_slot()
-            r = self._http.post("/chat/completions", json=body)
+            try:
+                r = self._http.post("/chat/completions", json=body)
+            except httpx.TimeoutException as e:
+                if timeouts_left == 0 or attempt == self.max_retries:
+                    raise ProviderError(f"gemini connection error: request timed out ({type(e).__name__})") from e
+                timeouts_left -= 1
+                continue
+            except httpx.TransportError as e:
+                raise ProviderError(f"gemini connection error: {type(e).__name__}: {e}") from e
             if r.status_code not in (429, 503) or attempt == self.max_retries:
                 break
             retry_after = r.headers.get("retry-after", "")

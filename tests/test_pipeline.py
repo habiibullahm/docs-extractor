@@ -274,3 +274,30 @@ def test_provider_error_never_stores_an_html_page():
     with pytest.raises(ProviderError) as e:
         p.complete_json("s", ["hi"], {"type": "object"})
     assert "error 404" in str(e.value) and "<" not in str(e.value) and len(str(e.value)) < 200
+
+
+def test_gemini_timeout_is_retried_once_then_reported(monkeypatch):
+    import httpx
+
+    from docex.providers.llm import ProviderError
+
+    outcomes = iter(["timeout", "ok"])
+
+    def flaky(req):
+        if next(outcomes) == "timeout":
+            raise httpx.ReadTimeout("slow", request=req)
+        return httpx.Response(200, json=_OK)
+
+    p, _ = _gemini(monkeypatch, flaky, min_interval_s=0)
+    assert p.complete_json("sys", ["x"], {"type": "object"}).data == {"x": 1}
+
+    calls = []
+
+    def always_slow(req):
+        calls.append(1)
+        raise httpx.ReadTimeout("slow", request=req)
+
+    p, _ = _gemini(monkeypatch, always_slow, min_interval_s=0)
+    with pytest.raises(ProviderError, match="timed out"):
+        p.complete_json("sys", ["x"], {"type": "object"})
+    assert len(calls) == 2  # one try plus one retry, not max_retries
