@@ -37,10 +37,13 @@ def _flatten(values: dict[str, Any], prefix: str = "") -> dict[str, Any]:
     return out
 
 
-def approved(s: Session, doc_type: Optional[str] = None) -> list[dict[str, Any]]:
-    """Approved documents, oldest first, each as {meta, values, items}."""
+def approved(s: Session, doc_type: Optional[str] = None, owner_id: Optional[str] = None) -> list[dict[str, Any]]:
+    """Approved documents, oldest first, each as {meta, values, items}. owner_id limits it to one visitor."""
     rows = []
-    docs = s.scalars(select(Document).where(Document.status == "done").order_by(Document.created_at)).all()
+    q = select(Document).where(Document.status == "done")
+    if owner_id is not None:
+        q = q.where(Document.owner_id == owner_id)
+    docs = s.scalars(q.order_by(Document.created_at)).all()
     for d in docs:
         ex = d.latest
         if ex is None or (doc_type and ex.doc_type != doc_type):

@@ -133,8 +133,11 @@ def get_document(s: Session, doc_id: str) -> Optional[Document]:
     return s.get(Document, doc_id)
 
 
-def review_queue(s: Session, limit: int = 50) -> list[Document]:
-    docs = s.scalars(select(Document).where(Document.status == "done").order_by(Document.created_at.desc())).all()
+def review_queue(s: Session, limit: int = 50, owner_id: Optional[str] = None) -> list[Document]:
+    q = select(Document).where(Document.status == "done")
+    if owner_id is not None:
+        q = q.where(Document.owner_id == owner_id)
+    docs = s.scalars(q.order_by(Document.created_at.desc())).all()
     out = []
     for d in docs:
         if d.latest and d.latest.route == "review" and not d.reviews:

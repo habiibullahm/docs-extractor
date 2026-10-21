@@ -146,3 +146,83 @@ def test_migration_adds_owner_id_to_old_database(tmp_path):
         old = models.get_document(s, "old")
         assert old.filename == "a.png" and old.owner_id is None
     models._Session = None
+
+
+# ------------------------------------------------------------------ per-visitor isolation
+
+def wait(c, doc_id):
+    import time
+
+    for _ in range(120):
+        d = c.get(f"/documents/{doc_id}").json()
+        if d["status"] in ("done", "failed"):
+            return d
+        time.sleep(0.25)
+    raise AssertionError("timeout")
+
+
+def second_visitor(c):
+    return TestClient(c.app)
+
+
+def test_other_visitor_gets_404_everywhere(make_client):
+    a = make_client()
+    b = second_visitor(a)
+    doc_id = upload(a).json()["job_id"]
+    wait(a, doc_id)
+    assert b.get(f"/documents/{doc_id}").status_code == 404
+    assert b.get(f"/documents/{doc_id}/preview").status_code == 404
+    assert b.post(f"/review/{doc_id}", json={"action": "approve"}).status_code == 404
+    assert b.get("/documents").json() == [] and b.get("/review/queue").json() == []
+    assert [d["id"] for d in a.get("/documents").json()] == [doc_id]
+    assert [q["id"] for q in a.get("/review/queue").json()] == [doc_id]
+    assert a.get(f"/documents/{doc_id}/preview").status_code == 200
+
+
+def test_metrics_and_export_are_per_visitor(make_client):
+    a = make_client()
+    b = second_visitor(a)
+    doc_id = upload(a).json()["job_id"]
+    wait(a, doc_id)
+    a.post(f"/review/{doc_id}", json={"action": "correct", "values": {"store_name": "Toko A", "total": "12.500"}})
+    ma, mb = a.get("/metrics").json(), b.get("/metrics").json()
+    assert ma["documents"] == 1 and ma["reviews"] == {"correct": 1}
+    assert mb["documents"] == 0 and mb["reviews"] == {} and mb["by_status"] == {}
+    assert "offline_eval" in mb
+    assert a.get("/export/approved/count").json()["documents"] == 1
+    assert b.get("/export/approved/count").json()["documents"] == 0
+    assert doc_id not in b.get("/export/approved?format=csv").content.decode("utf-8-sig")
+
+
+def test_samples_are_public_but_runs_are_owned(make_client):
+    a = make_client()
+    b = second_visitor(a)
+    samples = b.get("/samples").json()
+    if not samples:
+        pytest.skip("no demo samples in this checkout")
+    job = a.post(f"/samples/{samples[0]['name']}").json()["job_id"]
+    wait(a, job)
+    assert b.get(f"/documents/{job}").status_code == 404
+    assert [d["id"] for d in a.get("/documents").json()] == [job]
+
+
+def test_cookieless_client_cannot_read_but_can_keep_cookie(make_client):
+    app = make_client().app
+    r = TestClient(app).post("/documents", files={"file": ("x.png", png(), "image/png")})
+    sid = re.search(r"docex_sid=([0-9a-f]{32})", r.headers["set-cookie"]).group(1)
+    doc_id = r.json()["job_id"]
+    kept = TestClient(app).get(f"/documents/{doc_id}", headers={"Cookie": f"docex_sid={sid}"})
+    assert kept.status_code == 200
+    assert TestClient(app).get(f"/documents/{doc_id}").status_code == 404
+
+
+def test_null_owner_rows_are_invisible(make_client):
+    import docex.db.models as models
+
+    a = make_client()
+    with models.session() as s:
+        s.add(models.Document(id="legacy", filename="old.png", content_type="image/png", sha256="x", size_bytes=1,
+                              storage_path="/tmp/none.png", approach="A", status="done"))
+    assert a.get("/documents/legacy").status_code == 404
+    assert a.get("/documents").json() == []
+    assert a.get("/metrics").json()["documents"] == 0
