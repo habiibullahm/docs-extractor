@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from docex.classify.classifier import Classification, classify_llm, classify_text
 from docex.config import pipeline_config
@@ -11,6 +11,7 @@ from docex.extract.baseline import extract_baseline
 from docex.extract.llm_extract import content_from_images, content_from_ocr, extract_llm, repair_llm
 from docex.normalize.document import normalize_document
 from docex.observability import Trace, get_logger
+from docex.pipeline.sources import locate_sources
 from docex.preprocess.image import PreparedDocument, preprocess, rotate_quadrant, to_jpeg_bytes
 from docex.providers.llm import LLMProvider, ProviderError, Usage, get_llm
 from docex.providers.ocr import OcrResult, get_ocr
@@ -40,6 +41,8 @@ class PipelineResult:
     trace: list[dict[str, Any]]
     error: Optional[str] = None
     first_pass_issues: list[dict[str, Any]] = field(default_factory=list)
+    # {path: {"box": [x, y, w, h] as fractions of the page OCR read, "text"}}. None when no OCR ran (approach C).
+    sources: Optional[dict[str, Any]] = None
 
     def to_dict(self) -> dict[str, Any]:
         return self.__dict__.copy()
@@ -84,7 +87,9 @@ class Pipeline:
             s.attrs.update(lines=len(res.lines), mean_conf=round(res.mean_confidence, 3))
         return res
 
-    def run(self, data: bytes, doc_type_hint: Optional[str] = None, threshold: Optional[float] = None) -> PipelineResult:
+    def run(self, data: bytes, doc_type_hint: Optional[str] = None, threshold: Optional[float] = None,
+            on_page: Optional[Callable[[Any], None]] = None) -> PipelineResult:
+        """``on_page`` receives the page image OCR read (after deskew and rotation), the one ``sources`` refers to."""
         trace = Trace()
         t0 = time.perf_counter()
         usage: Optional[Usage] = None
@@ -99,6 +104,8 @@ class Pipeline:
             if self.approach in ("A", "B"):
                 ocr_res = self._ocr(doc, trace)
                 versions["ocr"] = getattr(get_ocr(self.cfg["ocr"]), "version", self.cfg["ocr"]["provider"])
+                if on_page is not None:
+                    on_page(doc.image)
 
             with trace.span("classify") as s:
                 if doc_type_hint:
@@ -156,8 +163,18 @@ class Pipeline:
                 extracted = model.model_dump()
                 sr = score_document(cls.doc_type, extracted, issues, cls.confidence, threshold, self.cfg["scoring"],
                                     approach=self.approach)
+            sources = None
+            if ocr_res is not None:
+                with trace.span("sources") as s:
+                    height, width = doc.image.shape[:2]
+                    try:
+                        sources = locate_sources(plain(model), ocr_res.lines, (width, height))
+                    except Exception:  # boxes are a convenience; never lose the extraction over them
+                        log.exception("sources_failed")
+                        sources = {}
+                    s.attrs.update(boxes=len(sources))
             res = self._result(cls, model, issues, sr.score, sr.route, sr.reason, repaired, versions, usage, t0,
-                               trace, first_issues)
+                               trace, first_issues, sources)
         except ProviderError as e:
             res = self._error(str(e), versions, usage, t0, trace)
         log.info("document_processed", trace_id=trace.trace_id, approach=self.approach, doc_type=res.doc_type,
@@ -183,7 +200,8 @@ class Pipeline:
 
     def _result(self, cls: Classification, model, issues: list[Issue], score: float, route: str, reason: str,
                 repaired: bool, versions: dict[str, str], usage: Optional[Usage], t0: float, trace: Trace,
-                first_issues: Optional[list[Issue]] = None) -> PipelineResult:
+                first_issues: Optional[list[Issue]] = None,
+                sources: Optional[dict[str, Any]] = None) -> PipelineResult:
         latency = time.perf_counter() - t0
         extracted = model.model_dump() if model is not None else None
         return PipelineResult(
@@ -193,7 +211,7 @@ class Pipeline:
             issues=[i.to_dict() for i in issues], score=score, route=route, route_reason=reason,
             repaired=repaired, approach=self.approach, versions=versions,
             usage=self._usage_dict(usage, latency), latency_ms=round(latency * 1000, 1), trace=trace.to_list(),
-            first_pass_issues=[i.to_dict() for i in (first_issues or [])],
+            first_pass_issues=[i.to_dict() for i in (first_issues or [])], sources=sources,
         )
 
     def _error(self, msg: str, versions: dict[str, str], usage: Optional[Usage], t0: float,

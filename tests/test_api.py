@@ -44,7 +44,8 @@ def test_upload_process_review_metrics(client):
     doc_id = r.json()["job_id"]
     d = _wait(client, doc_id)
     assert d["status"] == "done" and d["route"] == "review"
-    assert client.get(f"/documents/{doc_id}/preview").headers["content-type"] == "image/png"
+    assert client.get(f"/documents/{doc_id}/preview").headers["content-type"] == "image/jpeg"  # the page OCR read
+    assert client.get(f"/documents/{doc_id}").json()["sources"] == {}  # blank page: nothing to box
     queued = next(q for q in client.get("/review/queue").json() if q["id"] == doc_id)
     assert isinstance(queued["weak_fields"], list)
     r = client.post(f"/review/{doc_id}", json={"action": "correct", "values": {"store_name": "Toko A", "total": "Rp 12.500"}})

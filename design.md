@@ -182,20 +182,31 @@ This is the screen that matters most. Everything else leads to it.
 ### Source box
 
 When a field is focused or hovered, a box marks the place in the scan where the value was read, and the scan scrolls
-to centre it.
+to centre it (hover only draws the box, it does not scroll). The weakest field is boxed when the document opens, and
+"Lihat kolomnya" on a validation issue boxes its field.
 
-- The box is an SVG layer over the scan image. It scales with zoom and with the stacked mobile layout.
+- The box is an SVG layer over the scan image (`viewBox` 0 to 1, so the server's fractional positions are used as they
+  are). It scales with zoom and with the stacked mobile layout.
 - Colour: `--ink` stroke 2px with a 12% `--ink` fill for the focused field. `--warn` stroke and fill for the other
   weak fields when "Tandai kolom lemah" is on.
-- A small label with the field name sits on the top edge of the focused box, so colour is never the only signal.
+- A small label with the field name sits on the top edge of the focused box (below it when the box is at the top of
+  the page), so colour is never the only signal. A line item row is labelled "Baris 2".
 - Clicking a box focuses its field.
-- A field without a box shows the line "lokasi di scan tidak ditemukan" in muted text under its input. A box is only
-  drawn when the match is certain. No box is better than a wrong box.
-- An edited field loses its box, because its value is no longer what was read from the document.
-- Boxes exist when the extraction ran OCR, which is the case for method A. A document with no stored positions
-  (older data, or a method without OCR) shows the same muted line and nothing else.
-- The scan shown is the page OCR actually read, not the original upload, so box coordinates match what is drawn.
-- The scan tools hold two buttons: "Perbesar" and "Tandai kolom lemah" (a toggle, `aria-pressed`).
+- The box is as tight as the OCR allows: the words of the value when the engine reports word positions (Tesseract
+  does), the whole printed row otherwise.
+- A field without a box says "Nama vendor: lokasi di scan tidak ditemukan." in the status chip at the left of the scan
+  tools, only while that field is focused or hovered and has a value. It is not under the input, so nothing shifts.
+  A box is only drawn when the match is certain: the server matches the value to one OCR row (using the printed label,
+  such as "Subtotal" or "PPN", when two rows carry the same amount). No box is better than a wrong box.
+- An edited field loses its box, because its value is no longer what was read from the document. Restoring the
+  original value brings it back. Line items keep the position of the row they came from, so removing a row does not
+  move the other boxes, and an added row has none.
+- Boxes exist when the extraction ran OCR, which is the case for methods A and B. A document with no stored positions
+  (older data, or method C) has no "Tandai kolom lemah" button and shows the same status line.
+- The scan shown is the page OCR actually read (deskewed, and rotated when the orientation fallback ran), saved next
+  to the upload, not the original file, so box coordinates match what is drawn. Documents processed before this
+  change show the original page and no boxes.
+- The scan tools hold the status chip, "Tandai kolom lemah" (a toggle, `aria-pressed`) and "Perbesar".
 
 ### Calculation check
 

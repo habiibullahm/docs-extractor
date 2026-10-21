@@ -16,6 +16,8 @@ class OcrLine:
     text: str
     confidence: float  # 0..1
     bbox: tuple[int, int, int, int]  # x, y, w, h
+    # (text, x, y, w, h) per word, when the engine reports them (Tesseract); lets the UI box one value, not the row
+    words: list[tuple[str, int, int, int, int]] = field(default_factory=list)
 
 
 @dataclass
@@ -86,7 +88,9 @@ class TesseractOcr:
             y0 = min(data["top"][i] for i in idxs)
             x1 = max(data["left"][i] + data["width"][i] for i in idxs)
             y1 = max(data["top"][i] + data["height"][i] for i in idxs)
-            lines.append(OcrLine(text, float(np.mean(confs)) if confs else 0.0, (x0, y0, x1 - x0, y1 - y0)))
+            word_boxes = [(str(data["text"][i]), data["left"][i], data["top"][i], data["width"][i], data["height"][i])
+                          for i in idxs]
+            lines.append(OcrLine(text, float(np.mean(confs)) if confs else 0.0, (x0, y0, x1 - x0, y1 - y0), word_boxes))
         lines.sort(key=lambda l: (l.bbox[1] + l.bbox[3] / 2, l.bbox[0]))
         return OcrResult(_merge_rows(lines), self.name)
 
@@ -144,7 +148,8 @@ def _merge_rows(lines: list[OcrLine]) -> list[OcrLine]:
                 y1 = max(prev.bbox[1] + prev.bbox[3], line.bbox[1] + line.bbox[3])
                 n_prev, n_line = len(prev.text), len(line.text)
                 conf = (prev.confidence * n_prev + line.confidence * n_line) / max(1, n_prev + n_line)
-                merged[-1] = OcrLine(prev.text + "   " + line.text, conf, (x0, y0, x1 - x0, y1 - y0))
+                merged[-1] = OcrLine(prev.text + "   " + line.text, conf, (x0, y0, x1 - x0, y1 - y0),
+                                     prev.words + line.words)
                 continue
         merged.append(line)
     return merged
