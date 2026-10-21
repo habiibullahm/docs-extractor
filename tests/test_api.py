@@ -45,7 +45,8 @@ def test_upload_process_review_metrics(client):
     d = _wait(client, doc_id)
     assert d["status"] == "done" and d["route"] == "review"
     assert client.get(f"/documents/{doc_id}/preview").headers["content-type"] == "image/png"
-    assert any(q["id"] == doc_id for q in client.get("/review/queue").json())
+    queued = next(q for q in client.get("/review/queue").json() if q["id"] == doc_id)
+    assert isinstance(queued["weak_fields"], list)
     r = client.post(f"/review/{doc_id}", json={"action": "correct", "values": {"store_name": "Toko A", "total": "Rp 12.500"}})
     assert r.status_code == 200 and "store_name" in r.json()["changed_fields"]
     assert not any(q["id"] == doc_id for q in client.get("/review/queue").json())
@@ -53,6 +54,8 @@ def test_upload_process_review_metrics(client):
     assert d["review"]["corrected_values"]["total"] == 12500.0
     m = client.get("/metrics").json()
     assert m["documents"] == 1 and m["reviews"] == {"correct": 1}
+    assert m["corrections_by_field"]["documents"] == 1
+    assert {"path": "store_name", "count": 1} in m["corrections_by_field"]["fields"]
 
 
 def test_rejects_bad_type_and_size(client):
@@ -121,3 +124,22 @@ def test_key_alone_does_not_enable_paid_approaches(client, monkeypatch):
     assert client.get("/health").json()["available_approaches"] == ["A"]
     r = client.post("/documents", files={"file": ("x.png", _png(), "image/png")}, data={"approach": "C"})
     assert r.status_code == 400
+
+
+def test_weak_fields_lists_critical_fields_weakest_first():
+    from docex.api.app import weak_fields
+
+    ext = {"store_name": {"value": "Toko", "confidence": 0.95}, "date": {"value": "2025-01-01", "confidence": 0.62},
+           "total": {"value": None, "confidence": 0.0}}
+    assert weak_fields("receipt", ext) == [{"path": "total", "confidence": None}, {"path": "date", "confidence": 0.62}]
+    ext["line_items"] = [{"total": {"value": 5.0, "confidence": 0.9}}, {"total": {"value": 6.0, "confidence": 0.7}}]
+    assert weak_fields("receipt", ext)[2] == {"path": "line_items", "confidence": 0.7}
+    assert weak_fields("receipt", None) == [{"path": p, "confidence": None} for p in ("store_name", "date", "total")]
+
+
+def test_corrections_by_field_counts_documents_and_collapses_line_items():
+    from docex.api.app import corrections_by_field
+
+    r = corrections_by_field([["total", "line_items.0.total", "line_items.1.total"], ["total"], ["date"], []])
+    assert r == {"documents": 4, "fields": [{"path": "total", "count": 2}, {"path": "date", "count": 1},
+                                            {"path": "line_items", "count": 1}]}

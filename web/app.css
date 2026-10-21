@@ -173,6 +173,7 @@ th {
 }
 td { padding: 10px 14px; border-top: 1px solid var(--line); vertical-align: middle; }
 td.num, th.num { text-align: right; }
+.table-wrap.narrow { max-width: 640px; }
 .queue tbody tr { cursor: pointer; transition: background-color 120ms; }
 .queue tbody tr:hover, .queue tbody tr:focus-visible { background: var(--ink-tint); outline: none; }
 .queue .file { font-family: var(--font-data); font-size: 13px; }
@@ -236,6 +237,15 @@ td.num, th.num { text-align: right; }
 .issues li.error { border-left-color: var(--err); background: var(--err-tint); }
 .issues li b { font: 600 12px var(--font-data); margin-right: 6px; }
 .issues li a { cursor: pointer; }
+/* The tape: right-aligned figures, hairline above the result (design.md, "Calculation check"). */
+.tape { width: max-content; max-width: 100%; margin-top: 8px; border-collapse: collapse; font: 400 13px var(--font-data); font-variant-numeric: tabular-nums; }
+.tape th, .tape td { padding: 1px 0; border: 0; background: none; white-space: normal; font: inherit; vertical-align: baseline; }
+.tape th { text-align: left; padding-right: 28px; font-weight: 400; color: var(--fg-muted); }
+.tape td { text-align: right; white-space: nowrap; }
+.tape .result th, .tape .result td { padding-top: 5px; border-top: 1px solid var(--line-strong); color: var(--fg); font-weight: 500; }
+.tape tr:first-child.result th, .tape tr:first-child.result td { border-top: 0; padding-top: 1px; }
+.tape .diff th, .tape .diff td { padding-top: 4px; }
+.tape .diff.off td, .tape .diff.off th { color: var(--err); font-weight: 600; }
 
 .group { border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
 .group-title { padding: 10px 14px; border-bottom: 1px solid var(--line); }

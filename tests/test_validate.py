@@ -63,3 +63,40 @@ def test_score_and_route():
     assert s.route == "review" and s.n_errors >= 1
     doc["document_inconsistent"] = True
     assert score_document("faktur_pajak", doc, [], 0.99, threshold=0.0).route == "review"
+
+
+def _expected(issues, rule):
+    return next(i for i in issues if i.rule == rule).expected
+
+
+def test_ppn_issue_carries_the_calculation():
+    issues = V.validate("faktur_pajak", faktur(ppn=140_000.0))
+    e = _expected(issues, "ppn_rate")
+    assert e["field"] == "ppn" and e["expected"] == 132_000.0 and e["actual"] == 140_000.0
+    assert e["difference"] == 8_000.0 and e["tolerance"] == 1.0
+    assert e["terms"] == [{"value": 1_100_000.0, "field": "dpp"}, {"value": 0.12, "op": "x", "label": "rate"}]
+
+
+def test_message_text_is_unchanged_by_expected():
+    i = next(i for i in V.validate("faktur_pajak", faktur(ppn=140_000.0)) if i.rule == "ppn_rate")
+    assert i.message == "PPN 140,000 != DPP 1,100,000 x rate [0.12] for the document date"
+
+
+def test_invoice_total_issue_lists_each_term():
+    inv = {"invoice_number": "INV-1", "date": "2025-01-10", "vendor": {"name": "V"}, "customer": {"name": "C"},
+           "line_items": [{"total": 150.0}], "subtotal": 150.0, "discount": 10.0, "tax": 16.5, "total": 170.0}
+    e = _expected(V.validate("invoice", inv), "totals_arithmetic")
+    assert e["field"] == "total" and e["expected"] == 156.5 and e["difference"] == 13.5
+    assert [(t.get("op"), t["field"]) for t in e["terms"]] == [(None, "subtotal"), ("-", "discount"), ("+", "tax")]
+
+
+def test_issue_without_a_calculation_has_no_expected_key():
+    bad = faktur()
+    bad["seller"]["npwp"] = "12345"
+    issue = next(i for i in V.validate("faktur_pajak", bad) if i.rule == "npwp_format")
+    assert issue.expected is None and "expected" not in issue.to_dict()
+
+
+def test_line_items_sum_issue_expected():
+    e = _expected(V.validate("faktur_pajak", faktur(total=1_300_000.0)), "line_items_sum")
+    assert e["field"] == "total" and e["expected"] == 1_200_000.0 and e["actual"] == 1_300_000.0

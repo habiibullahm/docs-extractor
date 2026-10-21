@@ -14,9 +14,32 @@ class Issue:
     severity: str  # "error" | "warning"
     message: str
     fields: list[str] = field(default_factory=list)
+    # Machine-readable version of the arithmetic behind the message, for the review UI:
+    # {"field", "expected", "actual", "difference", "tolerance", "terms": [{"op", "field"|"label", "value"}]}.
+    # None for rules that are not a calculation. The message text is unchanged (the repair prompt uses it).
+    expected: Optional[dict[str, Any]] = None
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        d = asdict(self)
+        if d["expected"] is None:
+            del d["expected"]
+        return d
+
+
+def _term(value: float, op: Optional[str] = None, *, field: Optional[str] = None, label: Optional[str] = None) -> dict[str, Any]:
+    t: dict[str, Any] = {"value": value}
+    if op:
+        t["op"] = op
+    if field:
+        t["field"] = field
+    if label:
+        t["label"] = label
+    return t
+
+
+def _expected(field: str, expected: float, actual: float, tolerance: float, terms: list[dict[str, Any]]) -> dict[str, Any]:
+    return {"field": field, "expected": round(expected, 2), "actual": round(actual, 2),
+            "difference": round(abs(actual - expected), 2), "tolerance": round(tolerance, 2), "terms": terms}
 
 
 def get_path(doc: dict[str, Any], path: str) -> Any:
@@ -58,7 +81,9 @@ class Validator:
         item_totals = [it.get("total") for it in items]
         sum_target = {"faktur_pajak": "total", "invoice": "subtotal", "receipt": "subtotal"}[doc_type]
         target = values.get(sum_target)
+        derived = False
         if doc_type == "receipt" and target is None:
+            derived = True
             target, sum_target = values.get("total"), "total"
             extras = sum(values.get(k) or 0 for k in ("service_charge", "tax")) - (values.get("discount") or 0)
             target = None if target is None else target - extras
@@ -70,7 +95,10 @@ class Validator:
                 if not _close(s, target, r["abs_tolerance"], r["rel_tolerance"]):
                     add(Issue("line_items_sum", r["severity"],
                               f"sum of line items ({s:,.2f}) != {sum_target} ({target:,.2f})",
-                              ["line_items", sum_target]))
+                              ["line_items", sum_target],
+                              None if derived else _expected(
+                                  sum_target, s, target, max(r["abs_tolerance"], r["rel_tolerance"] * max(abs(s), abs(target))),
+                                  [])))
 
         if r := self._rule("totals_arithmetic"):
             self._arithmetic(doc_type, values, r, add)
@@ -125,7 +153,10 @@ class Validator:
                 if not _close(exp, tot, *tol):
                     add(Issue("totals_arithmetic", r["severity"],
                               f"subtotal - discount + tax = {exp:,.2f} but total = {tot:,.2f}",
-                              ["subtotal", "discount", "tax", "total"]))
+                              ["subtotal", "discount", "tax", "total"],
+                              _expected("total", exp, tot, max(tol[0], tol[1] * max(abs(exp), abs(tot))), [
+                                  _term(sub, field="subtotal"), _term(v.get("discount") or 0, "-", field="discount"),
+                                  _term(v.get("tax") or 0, "+", field="tax")])))
         elif doc_type == "receipt":
             sub, tot = v.get("subtotal"), v.get("total")
             if sub is not None and tot is not None:
@@ -133,16 +164,24 @@ class Validator:
                 if not _close(exp, tot, *tol):
                     add(Issue("totals_arithmetic", r["severity"],
                               f"subtotal - discount + service + tax = {exp:,.2f} but total = {tot:,.2f}",
-                              ["subtotal", "discount", "tax", "service_charge", "total"]))
+                              ["subtotal", "discount", "tax", "service_charge", "total"],
+                              _expected("total", exp, tot, max(tol[0], tol[1] * max(abs(exp), abs(tot))), [
+                                  _term(sub, field="subtotal"), _term(v.get("discount") or 0, "-", field="discount"),
+                                  _term(v.get("service_charge") or 0, "+", field="service_charge"),
+                                  _term(v.get("tax") or 0, "+", field="tax")])))
         elif doc_type == "faktur_pajak":
             tot, dpp = v.get("total"), v.get("dpp")
             if tot is not None and dpp is not None:
                 base = tot - (v.get("discount") or 0)
                 factors = {s["dpp_factor"] for s in self.tax["ppn"]["schemes"].values()}
                 if not any(_close(base * f, dpp, max(tol[0], 1.0), tol[1]) for f in factors):
+                    f = min(factors, key=lambda x: abs(base * x - dpp))
                     add(Issue("totals_arithmetic", r["severity"],
                               f"DPP {dpp:,.2f} does not match (total - discount) = {base:,.2f} under any DPP scheme",
-                              ["total", "discount", "dpp"]))
+                              ["total", "discount", "dpp"],
+                              _expected("dpp", base * f, dpp, max(tol[0], 1.0, tol[1] * dpp), [
+                                  _term(tot, field="total"), _term(v.get("discount") or 0, "-", field="discount"),
+                                  _term(f, "x", label="dpp_factor")])))
 
     def _ppn(self, doc_type: str, v: dict[str, Any], r: dict[str, Any], add) -> None:
         schemes = self.tax["ppn"]["schemes"]
@@ -156,8 +195,11 @@ class Validator:
                 or list(schemes.values())
             if not any(abs(round(dpp * s["rate"]) - ppn) <= tol + 1e-6 for s in cands):
                 rates = sorted({s["rate"] for s in cands})
+                rate = min(rates, key=lambda x: abs(round(dpp * x) - ppn))
                 add(Issue("ppn_rate", r["severity"],
-                          f"PPN {ppn:,.0f} != DPP {dpp:,.0f} x rate {rates} for the document date", ["ppn", "dpp"]))
+                          f"PPN {ppn:,.0f} != DPP {dpp:,.0f} x rate {rates} for the document date", ["ppn", "dpp"],
+                          _expected("ppn", round(dpp * rate), ppn, tol,
+                                    [_term(dpp, field="dpp"), _term(rate, "x", label="rate")])))
         else:
             tax, sub = v.get("tax"), v.get("subtotal")
             if not tax or sub is None:
@@ -165,4 +207,8 @@ class Validator:
             base = sub - (v.get("discount") or 0)
             effective = {s["rate"] * s["dpp_factor"] for s in schemes.values()} | {s["rate"] for s in schemes.values()}
             if base > 0 and not any(abs(base * e - tax) <= max(tol, 0.001 * tax) + 0.01 for e in effective):
-                add(Issue("ppn_rate", "warning", f"tax {tax:,.2f} is not a known PPN rate of {base:,.2f}", ["tax"]))
+                rate = min(effective, key=lambda e: abs(base * e - tax))
+                add(Issue("ppn_rate", "warning", f"tax {tax:,.2f} is not a known PPN rate of {base:,.2f}", ["tax"],
+                          _expected("tax", base * rate, tax, max(tol, 0.001 * tax) + 0.01, [
+                              _term(sub, field="subtotal"), _term(v.get("discount") or 0, "-", field="discount"),
+                              _term(round(rate, 6), "x", label="rate")])))
