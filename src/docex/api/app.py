@@ -31,6 +31,7 @@ from docex.db.models import Document, Extraction, Review, get_document, init_db,
 from docex.observability import configure_logging, get_logger
 from docex.preprocess.image import load_pages
 from docex.providers.llm import llm_available
+from docex.validate.rules import get_path
 from docex.worker.tasks import enqueue
 
 CFG = pipeline_config()
@@ -164,12 +165,35 @@ def list_docs(limit: int = 50) -> list[dict[str, Any]]:
                  "doc_type": d.latest.doc_type if d.latest else None, "reviewed": bool(d.reviews)} for d in docs]
 
 
+WEAK_CONFIDENCE = 0.8  # same line the review UI uses to flag a field
+
+
+def weak_fields(doc_type: str, extraction: Optional[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Critical fields and line items the reader was unsure about (or did not find), weakest first.
+
+    Mirrors what the document score looks at (scoring/score.py), so the list explains the score."""
+    out = []
+    for path in validation_config()["critical_fields"].get(doc_type, []):
+        node = get_path(extraction or {}, path)
+        conf = node.get("confidence") if isinstance(node, dict) and node.get("value") is not None else None
+        if conf is None or conf < WEAK_CONFIDENCE:
+            out.append({"path": path, "confidence": conf})
+    item_confs = [(it.get("total") or {}).get("confidence") for it in (extraction or {}).get("line_items") or []
+                  if isinstance(it, dict)]
+    item_confs = [c for c in item_confs if c is not None]
+    if item_confs and min(item_confs) < WEAK_CONFIDENCE:
+        out.append({"path": "line_items", "confidence": min(item_confs)})
+    return sorted(out, key=lambda f: (f["confidence"] is not None, f["confidence"] or 0.0))
+
+
 @app.get("/review/queue")
 def get_queue(limit: int = 50) -> list[dict[str, Any]]:
     with session() as s:
         return [{"id": d.id, "filename": d.filename, "doc_type": d.latest.doc_type, "score": d.latest.score,
                  "approach": d.approach,
-                 "route_reason": d.latest.result.get("route_reason"), "created_at": d.created_at.isoformat()}
+                 "route_reason": d.latest.result.get("route_reason"),
+                 "weak_fields": weak_fields(d.latest.doc_type, d.latest.result.get("extraction")),
+                 "created_at": d.created_at.isoformat()}
                 for d in review_queue(s, limit)]
 
 
@@ -189,6 +213,16 @@ def _diff(a: Any, b: Any, prefix: str = "") -> list[str]:
     if isinstance(a, list) and isinstance(b, list) and len(a) == len(b):
         return [x for i, (p, q) in enumerate(zip(a, b)) for x in _diff(p, q, f"{prefix}{i}.")]
     return [] if a == b else [prefix.rstrip(".")]
+
+
+def corrections_by_field(changed_lists: list[Any], top: int = 10) -> dict[str, Any]:
+    """How many corrected documents touched each field. Line items count as one field."""
+    counts: dict[str, int] = {}
+    for changed in changed_lists:
+        for path in {p.split(".")[0] if p.startswith("line_items.") else p for p in changed or []}:
+            counts[path] = counts.get(path, 0) + 1
+    ranked = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))[:top]
+    return {"documents": len(changed_lists), "fields": [{"path": p, "count": c} for p, c in ranked]}
 
 
 @app.post("/review/{doc_id}")
@@ -229,6 +263,7 @@ def metrics() -> dict[str, Any]:
         rows = s.execute(select(Extraction.route, Extraction.doc_type, Extraction.cost_usd, Extraction.latency_ms,
                                 Extraction.approach).where(Extraction.id.in_(latest_ids))).all()
         reviews = dict(s.execute(select(Review.action, func.count()).group_by(Review.action)).all())
+        changed_lists = s.scalars(select(Review.changed_fields).where(Review.action == "correct")).all()
     lat = sorted(r.latency_ms for r in rows)
     by_route: dict[str, int] = {}
     by_type: dict[str, int] = {}
@@ -246,6 +281,7 @@ def metrics() -> dict[str, Any]:
         "latency_ms_p95": lat[int(len(lat) * 0.95) - 1] if lat else None,
         "cost_usd_total": round(sum(r.cost_usd for r in rows), 4),
         "reviews": reviews,
+        "corrections_by_field": corrections_by_field(changed_lists),
         "default_approach": default_approach(),
         "offline_eval": offline,
     }

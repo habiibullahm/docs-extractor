@@ -200,21 +200,22 @@ to centre it.
 ### Calculation check
 
 A failed arithmetic or tax check is shown as a tape under the issue sentence, not as a sentence alone.
-The figures below are an illustration of the layout, not data.
+The figures below are an illustration of the layout (they come from a badly scanned demo faktur).
 
 ```
- Dasar pajak (DPP)            Rp 10.582.000
- x tarif PPN 12% x 11/12
- ---------------------------------------
- PPN seharusnya                Rp 1.164.020
- PPN di dokumen                Rp 1.164.000
- Selisih                              Rp 20
+ Dasar pajak (DPP)         Rp 2.898.300.000
+ x tarif PPN 11%
+ ---------------------------------------------
+ PPN seharusnya              Rp 318.813.000
+ PPN di dokumen                Rp 3.188.130
+ Selisih                     Rp 315.624.870
 ```
 
 - Right-aligned `IBM Plex Mono` with `tabular-nums`. A hairline `--line-strong` sits above the result.
 - The difference is `--err` when it is above the rule's tolerance and `--fg-muted` otherwise.
 - Lines are the same for every rule that has expected values: PPN rate, faktur DPP, invoice and receipt totals, and
   the sum of line items. The rows come from the server's expected values, so the screen never recomputes tax rules.
+- The line-items check has no terms: "Jumlah rincian barang", the document's figure, and the difference.
 - Without expected values (older documents), the current plain sentence is shown instead.
 - The server's exact English message stays in the tooltip of the issue.
 - Errors are red-edged, warnings amber-edged. Each issue links to the field it concerns ("Lihat kolomnya").
@@ -254,6 +255,8 @@ A dense table, one row per document: file, type, score bar against the threshold
 Rows are sorted by score, lowest first. Clicking a row or pressing `Enter` opens the workspace.
 
 The "why" column names the weak fields, up to three, then a count: "Tanggal 0,62, NPWP penjual 0,58, dan 2 lainnya".
+A weak field is a critical field, or the line items, with confidence below 0,80, weakest first; a field the reader did
+not find reads "belum terbaca". Two fields join with "dan" ("Nama vendor 0,02 dan Rincian barang 0,75").
 Server reasons stay machine-shaped; the browser words them. A document with no weak fields shows the validation count
 instead ("2 pemeriksaan otomatis tidak lolos").
 

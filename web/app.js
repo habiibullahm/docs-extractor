@@ -333,6 +333,17 @@ function scoreBar(score, thr) {
     <span class="fill${pass ? " pass" : ""}" style="width:${Math.max(2, score * 100)}%"></span>
     <span class="thr" style="left:${Math.min(thr, 1) * 100}%"></span></span>${num2(score)}</span>`;
 }
+// "Tanggal 0,62, NPWP penjual 0,58, dan 2 lainnya": up to three weak critical fields, weakest first.
+function weakText(q) {
+  const w = q.weak_fields || [];
+  if (!w.length) return "";
+  const name = (f) => `${upperFirst(fieldLabel(f.path, q.doc_type))} ${f.confidence == null ? "belum terbaca" : num2(f.confidence)}`;
+  const shown = w.slice(0, 3).map(name);
+  const rest = w.length - shown.length;
+  if (rest > 0) return `${shown.join(", ")}, dan ${rest} lainnya`;
+  if (shown.length === 3) return `${shown.slice(0, 2).join(", ")}, dan ${shown[2]}`;
+  return shown.join(" dan ");
+}
 async function loadQueue() {
   await refreshQueueCount();
   const body = $("#queue-body");
@@ -343,7 +354,7 @@ async function loadQueue() {
   }
   body.innerHTML = state.queue.map((q) => `<tr tabindex="0" data-id="${esc(q.id)}">
     <td class="file">${esc(q.filename)}</td><td>${esc(DOC_TYPES[q.doc_type] || q.doc_type)}</td>
-    <td>${scoreBar(q.score, thresholdFor(q.approach))}</td><td class="reason">${esc(humanReason(q.route_reason, q.doc_type))}</td>
+    <td>${scoreBar(q.score, thresholdFor(q.approach))}</td><td class="reason">${esc(weakText(q) || humanReason(q.route_reason, q.doc_type))}</td>
     <td class="age">${ago(q.created_at)}</td></tr>`).join("");
   const open = (tr) => { if (tr) { state.fromQueue = true; location.hash = `doc-${tr.dataset.id}`; } };
   body.onclick = (e) => open(e.target.closest("tr[data-id]"));
@@ -379,6 +390,34 @@ function issueText(issue, type, values) {
   const f = issue.fields?.[0] ? fieldLabel(issue.fields[0], type) : "";
   const say = RULES[issue.rule];
   return say ? say(f ? upperFirst(f) : "", values || {}, issue, type) : issue.message;
+}
+// Short names for the calculation check, where "Pajak pertambahan nilai seharusnya" would be a mouthful.
+const TAPE_LABEL = { dpp: "Dasar pajak (DPP)", ppn: "PPN", tax: "Pajak" };
+const tapeLabel = (field, type) => TAPE_LABEL[field] || fieldLabel(field, type);
+const pctText = (r) => `${(r * 100).toLocaleString("id-ID", { maximumFractionDigits: 2 })}%`;
+function termLabel(t, type) {
+  if (t.field) return tapeLabel(t.field, type);
+  if (t.label === "rate") return `tarif PPN ${pctText(t.value)}`;
+  if (t.label === "dpp_factor") return Math.abs(t.value - 11 / 12) < 1e-4 ? "faktor DPP 11/12" : t.value === 1 ? "tanpa faktor 11/12" : `faktor DPP ${num2(t.value)}`;
+  return "";
+}
+// The check printed like an adding-machine tape. All numbers come from the server's `expected`; nothing is recomputed here.
+function tapeHtml(issue, type, values) {
+  const e = issue.expected;
+  if (!e || !Array.isArray(e.terms)) return "";
+  const row = (cls, label, value) => `<tr class="${cls}"><th scope="row">${esc(label)}</th><td>${value == null ? "" : esc(money(value, values))}</td></tr>`;
+  const terms = e.terms.filter((t) => t.field ? !(t.op && !t.value) : true).map((t) => {
+    const op = t.op === "x" ? "x " : t.op === "-" ? "– " : t.op === "+" ? "+ " : "";
+    const isFactor = t.label === "rate" || t.label === "dpp_factor";
+    return row("term", `${op}${termLabel(t, type)}`, isFactor ? null : t.value);
+  });
+  const label = tapeLabel(e.field, type);
+  const sum = issue.rule === "line_items_sum";
+  const off = e.difference > e.tolerance;
+  return `<table class="tape"><caption class="sr">Rincian hitungan</caption><tbody>${terms.join("")}
+    ${row("result", sum ? "Jumlah rincian barang" : `${label} seharusnya`, e.expected)}
+    ${row("", `${label} di dokumen`, e.actual)}
+    ${row(`diff${off ? " off" : ""}`, "Selisih", e.difference)}</tbody></table>`;
 }
 const thresholdFor = (a) => state.health?.thresholds?.[a] ?? 0.9;
 
@@ -471,7 +510,7 @@ function renderDoc(d) {
   const groups = (LAYOUT[type] || []).map((g) => `<section class="group"><h3 class="group-title">${esc(g.title)}</h3>
       ${g.items.map(([p, en, idl, kind]) => fieldRow(p, en, idl, kind, ex, critical.has(p), corrected)).join("")}</section>`).join("");
   const issues = (d.issues || []).map((i) => `<li class="${i.severity}" title="${esc(i.message)}">${esc(issueText(i, type, d.values))}
-      ${i.fields?.length ? ` <a data-goto="${esc(i.fields[0])}">Lihat kolomnya</a>` : ""}</li>`).join("");
+      ${i.fields?.length ? ` <a data-goto="${esc(i.fields[0])}">Lihat kolomnya</a>` : ""}${tapeHtml(i, type, d.values)}</li>`).join("");
   const u = d.usage || {};
   const qi = state.queue.findIndex((q) => q.id === d.id);
 
@@ -720,6 +759,24 @@ function exportSection(ex) {
     : `<p class="src">Belum ada dokumen yang disetujui. Setujui atau koreksi dokumen di Antrean cek, nanti datanya bisa diunduh di sini.</p>`;
   return `<section class="metrics-sec"><h2>Unduh data yang sudah disetujui</h2>${body}</section>`;
 }
+// One label per path across document types; "total" is "Harga jual" on a faktur but "Total" everywhere else.
+const SHARED_LABEL = { date: "Tanggal", total: "Total", discount: "Diskon", tax: "Pajak" };
+function anyFieldLabel(path) {
+  if (SHARED_LABEL[path]) return SHARED_LABEL[path];
+  const type = Object.keys(LAYOUT).find((t) => fieldLabel(path, t) !== path);
+  return upperFirst(type ? fieldLabel(path, type) : fieldLabel(path, ""));
+}
+function correctionsSection(c) {
+  const rows = c?.fields || [];
+  const intro = `<p class="src">Dihitung dari dokumen yang dikoreksi pemeriksa di Antrean cek. Kolom di urutan atas paling sering salah dibaca.</p>`;
+  if (!rows.length) return `<section class="metrics-sec"><h2>Kolom yang paling sering dikoreksi</h2>${intro}
+    <p class="empty">Belum ada koreksi. Di Antrean cek, ubah sebuah kolom lalu pilih Simpan koreksi, nanti kolom itu muncul di sini.</p></section>`;
+  const pct = (v) => `${(v * 100).toLocaleString("id-ID", { maximumFractionDigits: 0 })}%`;
+  return `<section class="metrics-sec"><h2>Kolom yang paling sering dikoreksi</h2>${intro}
+    <div class="table-wrap narrow"><table><thead><tr><th>Kolom</th><th class="num">Dikoreksi</th><th class="num">Dari ${c.documents} dokumen yang dikoreksi</th></tr></thead><tbody>
+      ${rows.map((r) => `<tr><td>${esc(anyFieldLabel(r.path))}</td><td class="num">${r.count} kali</td><td class="num">${pct(r.count / c.documents)}</td></tr>`).join("")}
+    </tbody></table></div></section>`;
+}
 async function loadMetrics() {
   const box = $("#metrics");
   let m;
@@ -740,6 +797,7 @@ async function loadMetrics() {
         ${stat(m.latency_ms_p95 == null ? "–" : `${(m.latency_ms_p95 / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} detik`, "waktu proses terlama (p95)")}
         ${stat(`$${(m.cost_usd_total || 0).toFixed(4)}`, "biaya API dan server")}
       </div></section>
+    ${correctionsSection(m.corrections_by_field)}
     <section class="metrics-sec"><h2>Hasil uji dengan data contoh</h2>
       <p class="src">Diuji pada data sintetis set ${esc(m.offline_eval?.split || "dev")}, dari <code>eval/reports/summary.json</code>. Akurasi kolom menghitung setiap kolom. Akurasi dokumen hanya menghitung dokumen yang semua kolom pentingnya benar.</p>
       ${off.length ? `<div class="table-wrap"><table><thead><tr><th>Metode</th><th class="num">Dokumen</th><th class="num">Akurasi kolom</th>
