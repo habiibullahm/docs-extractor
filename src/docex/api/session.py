@@ -57,7 +57,7 @@ async def session_middleware(request: Request, call_next):
         sid = uuid.uuid4().hex
     request.state.sid = sid
     response = await call_next(request)
-    if fresh:
+    if fresh or request.method == "POST":  # a POST means the visitor is active: slide the expiry
         max_age = int(pipeline_config()["limits"]["retention_minutes"]) * 60
         response.set_cookie(SID_COOKIE, sid, max_age=max_age, httponly=True, samesite="lax", path="/",
                             secure=is_https(request))

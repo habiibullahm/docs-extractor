@@ -222,12 +222,15 @@ function waitText(seconds) {
 }
 function errorText(status, data) {
   const detail = typeof data?.detail === "string" ? data.detail : data?.error;
-  if (detail === "session_limit") return "Batas dokumen per sesi sudah tercapai. Dokumenmu terhapus otomatis nanti, lalu kamu bisa mencoba lagi.";
+  if (detail === "session_limit") {
+    const n = state.health?.session_max_docs;
+    return `Batas ${n ? `${n} ` : ""}dokumen per sesi sudah tercapai. Dokumenmu terhapus otomatis nanti, lalu kamu bisa mencoba lagi.`;
+  }
   if (detail === "storage_full") return "Server demo sedang penuh. Coba lagi beberapa jam lagi.";
   if (detail === "llm_daily_cap") return "Batas harian metode B dan C untuk demo ini sudah habis. Pakai metode A, atau coba lagi besok.";
   if (status === 413) return `File terlalu besar. Batasnya ${state.health?.max_upload_mb ?? 10} MB. Coba scan yang lebih kecil atau satu halaman saja.`;
   if (status === 415) return "Jenis file ini tidak didukung. Gunakan PDF, PNG, JPG, atau WEBP.";
-  if (status === 429) return "Terlalu banyak permintaan dari alamat ini. Tunggu satu menit, lalu coba lagi.";
+  if (status === 429) return "Terlalu banyak permintaan dari alamat ini. Tunggu beberapa menit, lalu coba lagi.";
   if (status === 400 && detail?.includes("paused")) return "Metode B dan C sedang dijeda karena kuota gratis Gemini habis atau Google menolak lokasi server. Pakai metode A dulu.";
   if (status === 400 && detail?.includes("not available")) return "Metode ini belum aktif di server ini karena kunci API belum dipasang. Coba metode A.";
   if (status === 404) return `Data tidak ditemukan. Dokumen demo terhapus otomatis setelah ${durationText(state.health?.retention_minutes ?? 120)}, atau server baru dimulai ulang.`;

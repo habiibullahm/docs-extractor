@@ -347,7 +347,7 @@ def test_llm_daily_cap_blocks_b_c_but_not_a(make_client, tmp_path):
     c = make_client(LLM_ENV)
     h = c.get("/health").json()
     assert h["available_approaches"] == ["A", "B", "C"] and h["llm_daily"] == {"limit": 1, "used": 0}
-    add_doc(tmp_path, "c-today", age_min=0, approach="C")
+    add_llm_usage(1)
     h = c.get("/health").json()
     assert h["available_approaches"] == ["A"] and set(h["paused_approaches"]) == {"B", "C"}
     assert h["llm_daily"] == {"limit": 1, "used": 1}
@@ -358,12 +358,9 @@ def test_llm_daily_cap_blocks_b_c_but_not_a(make_client, tmp_path):
     assert upload(c).status_code == 202  # approach A is never capped by the daily limit
 
 
-def test_llm_daily_cap_ignores_yesterday(make_client, tmp_path):
-    from datetime import datetime, timezone
-
+def test_llm_daily_cap_ignores_yesterday(make_client):
     c = make_client(LLM_ENV)
-    now = datetime.now(timezone.utc)
-    add_doc(tmp_path, "c-yesterday", age_min=now.hour * 60 + now.minute + 1, approach="C")  # 23:59 UTC yesterday
+    add_llm_usage(1, days_ago=1)
     h = c.get("/health").json()
     assert h["available_approaches"] == ["A", "B", "C"] and h["llm_daily"]["used"] == 0
 
@@ -376,3 +373,74 @@ def test_ui_mentions_retention_and_new_errors(make_client):
     js = c.get("/web/app.js").text
     for needle in ("session_limit", "storage_full", "llm_daily_cap", "retention_minutes"):
         assert needle in js, needle
+
+
+# ------------------------------------------------------------------ review fixes
+
+def add_llm_usage(count, days_ago=0):
+    from datetime import datetime, timedelta, timezone
+
+    import docex.db.models as models
+
+    day = (datetime.now(timezone.utc) - timedelta(days=days_ago)).strftime("%Y-%m-%d")
+    with models.session() as s:
+        s.add(models.LlmUsage(day=day, count=count))
+
+
+def test_llm_daily_cap_survives_the_cleaner(make_client, monkeypatch):
+    from datetime import datetime, timedelta, timezone
+
+    import docex.api.app as app_mod
+    import docex.db.models as models
+    from docex.db.retention import purge_expired
+
+    c = make_client({**LLM_ENV, "DOCEX_LIMITS__LLM_DAILY_DOCS": "2"})
+    monkeypatch.setattr(app_mod, "enqueue", lambda doc_id: None)  # never reach the real Gemini API
+    assert upload(c, approach="C").status_code == 202
+    assert c.get("/health").json()["llm_daily"]["used"] == 1
+    with models.session() as s:
+        for d in s.scalars(models.select(models.Document)).all():
+            d.created_at = datetime.now(timezone.utc) - timedelta(hours=3)
+    assert purge_expired() == 1 and doc_ids() == set()
+    assert c.get("/health").json()["llm_daily"]["used"] == 1  # the counter does not live in documents
+    assert upload(c, approach="B").status_code == 202
+    assert upload(c, approach="C").json()["detail"] == "llm_daily_cap"
+
+
+def test_caps_hold_under_concurrent_sample_runs(make_client):
+    from concurrent.futures import ThreadPoolExecutor
+
+    a = make_client({"DOCEX_LIMITS__SESSION_MAX_DOCS": "2"})
+    samples = a.get("/samples").json()
+    if not samples:
+        pytest.skip("no demo samples in this checkout")
+
+    def run(_):
+        v = TestClient(a.app, headers={"Cookie": f"docex_sid={'d' * 32}"})
+        return v.post(f"/samples/{samples[0]['name']}").status_code
+
+    with ThreadPoolExecutor(12) as ex:
+        codes = list(ex.map(run, range(12)))
+    assert codes.count(202) == 2 and codes.count(429) == 10
+
+
+def test_default_rate_limit_has_an_hourly_ceiling(make_client):
+    from docex.config import pipeline_config
+
+    assert "/hour" in pipeline_config()["limits"]["rate_limit"]
+    c = make_client({"DOCEX_LIMITS__RATE_LIMIT": "5/minute;2/hour"})
+    assert [upload(c).status_code for _ in range(3)] == [202, 202, 429]
+
+
+def test_post_refreshes_the_cookie(make_client):
+    c = make_client()
+    sid = re.search(r"docex_sid=([0-9a-f]{32})", c.get("/health").headers["set-cookie"]).group(1)
+    r = upload(c)
+    assert f"docex_sid={sid}" in r.headers["set-cookie"] and "max-age=7200" in r.headers["set-cookie"].lower()
+    assert "set-cookie" not in c.get("/health").headers
+
+
+def test_health_exposes_session_cap_and_ui_uses_it(make_client):
+    c = make_client()
+    assert c.get("/health").json()["session_max_docs"] == 20
+    assert "session_max_docs" in c.get("/web/app.js").text

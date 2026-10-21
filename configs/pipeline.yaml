@@ -68,7 +68,7 @@ scoring:
 
 limits:
   max_upload_mb: 10
-  rate_limit: "30/minute"
+  rate_limit: "30/minute;30/hour"   # per IP; the hourly ceiling bounds a script that sends no cookie
   # Public demo: uploads are private to one browser (cookie) and deleted after retention_minutes.
   retention_minutes: 120
   session_max_docs: 20        # documents per visitor within the retention window

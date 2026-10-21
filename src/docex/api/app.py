@@ -14,6 +14,7 @@ import asyncio
 import hashlib
 import json
 import os
+import threading
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Literal, Optional
@@ -29,7 +30,7 @@ from sqlalchemy import func, select
 
 from docex.api.session import client_ip, current_sid, session_middleware
 from docex.config import DATA_DIR, ROOT, pipeline_config, validation_config
-from docex.db.models import Document, Extraction, Review, get_document, init_db, review_queue, session
+from docex.db.models import Document, Extraction, LlmUsage, Review, get_document, init_db, review_queue, session
 from docex.db.retention import purge_loop
 from docex.observability import configure_logging, get_logger
 from docex.preprocess.image import load_pages
@@ -125,6 +126,7 @@ def health() -> dict[str, Any]:
             paused[a] = max(paused.get(a, 0), until_midnight)
     return {"ok": True, "default_approach": default_approach(),
             "available_approaches": available, "paused_approaches": paused, "llm_daily": daily,
+            "session_max_docs": int(limits()["session_max_docs"]),
             "thresholds": {a: default_threshold(a, CFG["scoring"]) for a in sections},
             "critical_fields": validation_config()["critical_fields"],
             "models": {"B": CFG["llm"]["model"], "C": CFG["vlm"]["model"]},
@@ -158,10 +160,14 @@ def _utc_midnight() -> datetime:
     return datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
 
 
+def _utc_day() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+
 def llm_docs_today() -> int:
     with session() as s:
-        return s.scalar(select(func.count(Document.id)).where(
-            Document.approach.in_(["B", "C"]), Document.created_at >= _utc_midnight())) or 0
+        row = s.get(LlmUsage, _utc_day())
+        return row.count if row else 0
 
 
 def _check_caps(sid: str, approach: str, size: int) -> None:
@@ -180,21 +186,31 @@ def _check_caps(sid: str, approach: str, size: int) -> None:
         raise HTTPException(429, "llm_daily_cap")
 
 
+_create_lock = threading.Lock()  # cap check and insert must be one step, or concurrent requests overshoot a cap
+
+
 def _create(data: bytes, filename: str, mime: str, approach: str, doc_type: Optional[str],
             owner_id: str) -> dict[str, Any]:
-    _check_caps(owner_id, approach, len(data))
     digest = hashlib.sha256(data).hexdigest()
     ext = {"application/pdf": ".pdf", "image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp",
            "image/tiff": ".tif"}[mime]
-    with session() as s:
-        doc = Document(filename=filename[:255], content_type=mime, sha256=digest, size_bytes=len(data),
-                       storage_path="", approach=approach, doc_type_hint=doc_type, owner_id=owner_id)
-        s.add(doc)
-        s.flush()
-        path = STORAGE / f"{doc.id}{ext}"
-        path.write_bytes(data)
-        doc.storage_path = str(path)
-        doc_id = doc.id
+    with _create_lock:
+        _check_caps(owner_id, approach, len(data))
+        with session() as s:
+            doc = Document(filename=filename[:255], content_type=mime, sha256=digest, size_bytes=len(data),
+                           storage_path="", approach=approach, doc_type_hint=doc_type, owner_id=owner_id)
+            s.add(doc)
+            s.flush()
+            path = STORAGE / f"{doc.id}{ext}"
+            path.write_bytes(data)
+            doc.storage_path = str(path)
+            doc_id = doc.id
+            if approach in ("B", "C"):
+                usage = s.get(LlmUsage, _utc_day())
+                if usage is None:
+                    s.add(LlmUsage(day=_utc_day(), count=1))
+                else:
+                    usage.count += 1
     enqueue(doc_id)
     log.info("document_received", document_id=doc_id, mime=mime, size=len(data), approach=approach)
     return {"job_id": doc_id, "status": "queued", "approach": approach}

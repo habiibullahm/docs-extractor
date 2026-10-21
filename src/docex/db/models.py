@@ -49,6 +49,14 @@ class Document(Base):
         return self.extractions[-1] if self.extractions else None
 
 
+class LlmUsage(Base):
+    """B/C documents accepted per UTC day. Kept apart from documents so the retention cleaner cannot reset it."""
+    __tablename__ = "llm_usage"
+
+    day: Mapped[str] = mapped_column(String(10), primary_key=True)  # YYYY-MM-DD, UTC
+    count: Mapped[int] = mapped_column(Integer, default=0)
+
+
 class Extraction(Base):
     __tablename__ = "extractions"
 
