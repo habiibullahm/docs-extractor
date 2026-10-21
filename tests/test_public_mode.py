@@ -97,3 +97,52 @@ def test_junk_forwarded_for_falls_back_to_socket_address(make_client):
     assert upload(c).status_code == 202
     assert upload(c, {"X-Forwarded-For": "unknown"}).status_code == 202
     assert upload(c, {"X-Forwarded-For": ""}).status_code == 429
+
+
+# ------------------------------------------------------------------ owner_id column
+
+def _old_documents_table(path):
+    import sqlite3
+
+    con = sqlite3.connect(path)
+    con.execute("""CREATE TABLE documents (id VARCHAR(32) PRIMARY KEY, filename VARCHAR(255) NOT NULL,
+        content_type VARCHAR(100) NOT NULL, sha256 VARCHAR(64) NOT NULL, size_bytes INTEGER NOT NULL,
+        storage_path VARCHAR(500) NOT NULL, status VARCHAR(20) NOT NULL, approach VARCHAR(4) NOT NULL,
+        doc_type_hint VARCHAR(20), error TEXT, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)""")
+    con.execute("INSERT INTO documents VALUES ('old', 'a.png', 'image/png', 'x', 1, '/tmp/a.png', 'done', 'A', "
+                "NULL, NULL, '2026-10-20 10:00:00', '2026-10-20 10:00:00')")
+    con.commit()
+    con.close()
+
+
+def test_owner_id_is_stored(tmp_path, monkeypatch):
+    import docex.db.models as models
+
+    models._Session = None
+    models.init_db(f"sqlite:///{tmp_path / 'o.db'}")
+    with models.session() as s:
+        s.add(models.Document(id="d1", filename="a.png", content_type="image/png", sha256="x", size_bytes=1,
+                              storage_path="/tmp/a.png", approach="A", owner_id="a" * 32))
+    with models.session() as s:
+        assert models.get_document(s, "d1").owner_id == "a" * 32
+    models._Session = None
+
+
+def test_migration_adds_owner_id_to_old_database(tmp_path):
+    import sqlalchemy as sa
+
+    import docex.db.models as models
+
+    path = tmp_path / "old.db"
+    _old_documents_table(path)
+    url = f"sqlite:///{path}"
+    models._Session = None
+    models.init_db(url)
+    models.init_db(url)  # running it again is a no-op
+    insp = sa.inspect(sa.create_engine(url))
+    assert "owner_id" in [c["name"] for c in insp.get_columns("documents")]
+    assert any("owner_id" in ix["column_names"] for ix in insp.get_indexes("documents"))
+    with models.session() as s:
+        old = models.get_document(s, "old")
+        assert old.filename == "a.png" and old.owner_id is None
+    models._Session = None
