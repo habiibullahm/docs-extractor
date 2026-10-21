@@ -127,6 +127,23 @@ def test_key_alone_does_not_enable_paid_approaches(client, monkeypatch):
     assert r.status_code == 400
 
 
+def test_paused_approaches_are_hidden_and_refused_until_the_cooldown_ends(client, monkeypatch):
+    from docex.providers.llm import Cooldown
+
+    monkeypatch.setenv("GEMINI_API_KEY", "test")
+    monkeypatch.setenv("DOCEX_ENABLE_LLM", "true")
+    h = client.get("/health").json()
+    assert h["available_approaches"] == ["A", "B", "C"] and h["paused_approaches"] == {}
+    Cooldown.trip("gemini")
+    h = client.get("/health").json()
+    assert h["available_approaches"] == ["A"] and set(h["paused_approaches"]) == {"B", "C"}
+    assert all(0 < v <= 900 for v in h["paused_approaches"].values())
+    r = client.post("/documents", files={"file": ("x.png", _png(), "image/png")}, data={"approach": "B"})
+    assert r.status_code == 400 and "paused" in r.json()["detail"]
+    Cooldown.clear()
+    assert client.get("/health").json()["available_approaches"] == ["A", "B", "C"]
+
+
 def test_weak_fields_lists_critical_fields_weakest_first():
     from docex.api.app import weak_fields
 

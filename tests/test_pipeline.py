@@ -301,3 +301,39 @@ def test_gemini_timeout_is_retried_once_then_reported(monkeypatch):
     with pytest.raises(ProviderError, match="timed out"):
         p.complete_json("sys", ["x"], {"type": "object"})
     assert len(calls) == 2  # one try plus one retry, not max_retries
+
+
+def test_gemini_quota_or_location_rejection_pauses_the_provider(monkeypatch):
+    import httpx
+
+    from docex.providers.llm import Cooldown, ProviderError, llm_available, llm_paused_seconds
+
+    section = {"provider": "gemini"}
+    p, _ = _gemini(monkeypatch, lambda req: httpx.Response(429, json={"error": {"message": "quota"}}),
+                   min_interval_s=0, max_retries=1)
+    assert llm_available(section)
+    with pytest.raises(ProviderError):
+        p.complete_json("sys", ["x"], {"type": "object"})
+    assert not llm_available(section) and 0 < llm_paused_seconds(section) <= 900
+
+    Cooldown.clear()
+    assert llm_available(section) and llm_paused_seconds(section) == 0
+    p, _ = _gemini(monkeypatch, lambda req: httpx.Response(
+        400, json={"error": {"message": "User location is not supported for the API use."}}), min_interval_s=0)
+    with pytest.raises(ProviderError):
+        p.complete_json("sys", ["x"], {"type": "object"})
+    assert not llm_available(section)
+
+
+def test_pause_ends_after_the_cooldown(monkeypatch):
+    from docex.providers.llm import Cooldown, llm_available
+
+    monkeypatch.setenv("GEMINI_API_KEY", "test")
+    monkeypatch.setenv("DOCEX_ENABLE_LLM", "true")
+    monkeypatch.setenv("DOCEX_LLM_COOLDOWN_S", "0.05")
+    Cooldown.trip("gemini")
+    assert not llm_available({"provider": "gemini"})
+    import time
+
+    time.sleep(0.08)
+    assert llm_available({"provider": "gemini"})

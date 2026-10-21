@@ -30,7 +30,7 @@ from docex.config import DATA_DIR, ROOT, pipeline_config, validation_config
 from docex.db.models import Document, Extraction, Review, get_document, init_db, review_queue, session
 from docex.observability import configure_logging, get_logger
 from docex.preprocess.image import load_pages
-from docex.providers.llm import llm_available
+from docex.providers.llm import llm_available, llm_paused_seconds
 from docex.validate.rules import get_path
 from docex.worker.tasks import enqueue, read_page_path
 
@@ -58,6 +58,16 @@ def default_approach() -> str:
     """The local baseline A unless DOCEX_APPROACH says otherwise: B and C use a rate-limited free-tier key."""
     env = os.environ.get("DOCEX_APPROACH")
     return env.upper() if env else "A"
+
+
+def _require_available(approach: str) -> None:
+    section = {"B": CFG["llm"], "C": CFG["vlm"]}.get(approach)
+    if section is None or llm_available(section):
+        return
+    if llm_paused_seconds(section):
+        raise HTTPException(400, f"approach {approach} is paused for now (free quota used up or location rejected); "
+                                 f"try again in about {llm_paused_seconds(section)} s or use approach A")
+    raise HTTPException(400, f"approach {approach} is not available on this deployment (no model credentials)")
 
 
 def sniff(data: bytes) -> Optional[str]:
@@ -93,6 +103,8 @@ def health() -> dict[str, Any]:
     sections = {"A": None, "B": CFG["llm"], "C": CFG["vlm"]}
     return {"ok": True, "default_approach": default_approach(),
             "available_approaches": [a for a, s in sections.items() if s is None or llm_available(s)],
+            "paused_approaches": {a: llm_paused_seconds(s) for a, s in sections.items()
+                                  if s is not None and llm_paused_seconds(s)},
             "thresholds": {a: default_threshold(a, CFG["scoring"]) for a in sections},
             "critical_fields": validation_config()["critical_fields"],
             "models": {"B": CFG["llm"]["model"], "C": CFG["vlm"]["model"]},
@@ -112,8 +124,7 @@ async def upload(request: Request, file: UploadFile = File(...),
     if mime is None or mime not in LIMITS["allowed_types"]:
         raise HTTPException(415, f"unsupported file type; allowed: {LIMITS['allowed_types']}")
     approach = approach or default_approach()
-    if approach in ("B", "C") and not llm_available(CFG["llm" if approach == "B" else "vlm"]):
-        raise HTTPException(400, f"approach {approach} is not available on this deployment (no model credentials)")
+    _require_available(approach)
     return _create(data, file.filename or "upload", mime, approach, doc_type)
 
 
@@ -367,8 +378,7 @@ def run_sample(request: Request, name: str, approach: Optional[Literal["A", "B",
     path = SAMPLES_DIR / index[name]["file"]
     data = path.read_bytes()
     approach = approach or default_approach()
-    if approach in ("B", "C") and not llm_available(CFG["llm" if approach == "B" else "vlm"]):
-        raise HTTPException(400, f"approach {approach} is not available on this deployment")
+    _require_available(approach)
     return _create(data, path.name, sniff(data) or "image/jpeg", approach, None)
 
 

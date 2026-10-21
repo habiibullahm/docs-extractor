@@ -64,6 +64,29 @@ class ProviderError(RuntimeError):
     pass
 
 
+class Cooldown:
+    """Free-tier quota and location rejections come in bursts. After one, the provider is paused for a while
+    (DOCEX_LLM_COOLDOWN_S, default 15 minutes) so the UI offers it again only once it may work."""
+
+    _until: dict[str, float] = {}
+    _lock = threading.Lock()
+
+    @classmethod
+    def trip(cls, provider: str) -> None:
+        seconds = float(os.environ.get("DOCEX_LLM_COOLDOWN_S", "900"))
+        with cls._lock:
+            cls._until[provider] = time.monotonic() + seconds
+
+    @classmethod
+    def remaining(cls, provider: str) -> float:
+        return max(0.0, cls._until.get(provider, 0.0) - time.monotonic())
+
+    @classmethod
+    def clear(cls) -> None:
+        with cls._lock:
+            cls._until.clear()
+
+
 class LLMProvider(Protocol):
     name: str
     model: str
@@ -282,8 +305,11 @@ class GeminiProvider(OpenAICompatibleProvider):
             retry_after = r.headers.get("retry-after", "")
             self._sleep(float(retry_after) if retry_after.isdigit() else 10.0 * 2 ** attempt)
         if r.status_code == 429:
+            Cooldown.trip("gemini")
             raise ProviderError("gemini free-tier quota reached (429, nothing billed); "
                                 f"wait for the quota to reset: {r.text[:200]}")
+        if r.status_code == 400 and "location is not supported" in r.text:
+            Cooldown.trip("gemini")
         return r
 
 
@@ -344,9 +370,14 @@ def llm_available(section: dict[str, Any]) -> bool:
     if provider in GATED_PROVIDERS and not paid_llm_enabled():
         return False
     if provider == "gemini":
-        return bool(os.environ.get("GEMINI_API_KEY"))
+        return bool(os.environ.get("GEMINI_API_KEY")) and Cooldown.remaining("gemini") == 0
     if provider == "openai":
         return bool(os.environ.get("OPENAI_API_KEY"))
     if provider == "anthropic":
         return bool(os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN"))
     return True
+
+
+def llm_paused_seconds(section: dict[str, Any]) -> int:
+    """Seconds left before a paused provider is offered again (0 when it is not paused)."""
+    return int(Cooldown.remaining(section.get("provider", "gemini")) + 0.999)

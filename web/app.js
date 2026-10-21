@@ -187,7 +187,7 @@ async function api(method, path, body) {
 function failureText(err) {
   const e = String(err || "");
   const code = Number((e.match(/error (\d{3})/) || [])[1]);
-  if (/location is not supported/i.test(e)) return "Google menolak lokasi server ini, jadi Gemini tidak bisa dipanggil langsung. Server perlu lewat proxy.";
+  if (/location is not supported/i.test(e)) return "Google menolak lokasi server ini (atau lokasi proxy-nya) untuk sementara. Coba lagi nanti atau pakai metode A.";
   if (/KEY is not set/i.test(e)) return "Kunci API untuk metode ini belum dipasang di server. Coba metode A.";
   if (/calls are disabled/i.test(e)) return "Metode B dan C sedang dimatikan di server ini. Coba metode A.";
   if (code === 429 || /quota/i.test(e)) return "Kuota gratis Gemini sedang habis. Tunggu beberapa menit, lalu coba lagi.";
@@ -201,6 +201,7 @@ function errorText(status, data) {
   if (status === 413) return `File terlalu besar. Batasnya ${state.health?.max_upload_mb ?? 10} MB. Coba scan yang lebih kecil atau satu halaman saja.`;
   if (status === 415) return "Jenis file ini tidak didukung. Gunakan PDF, PNG, JPG, atau WEBP.";
   if (status === 429) return "Terlalu banyak permintaan dari alamat ini. Tunggu satu menit, lalu coba lagi.";
+  if (status === 400 && detail?.includes("paused")) return "Metode B dan C sedang dijeda karena kuota gratis Gemini habis atau Google menolak lokasi server. Pakai metode A dulu.";
   if (status === 400 && detail?.includes("not available")) return "Metode ini belum aktif di server ini karena kunci API belum dipasang. Coba metode A.";
   if (status === 404) return "Data tidak ditemukan. Mungkin sudah terhapus saat server dimulai ulang.";
   if (status === 422) return "Ada nilai koreksi yang formatnya tidak bisa dibaca. Periksa angka dan tanggalnya, lalu simpan lagi.";
@@ -266,6 +267,7 @@ function route() {
   }
   if (view === "queue") loadQueue();
   if (view === "metrics") loadMetrics();
+  if (view === "extract" && state.health) refreshHealth();
   if (view === "doc") openDoc(h.slice(4));
   else stopPolling();
 }
@@ -279,7 +281,9 @@ function renderApproachPicker() {
     const ok = h.available_approaches.includes(code);
     const model = h.models?.[code];
     const lab = document.createElement("label");
-    lab.title = ok ? `${a.note}${model ? ` Model: ${model}.` : ""}` : `Belum aktif di sini: kunci API untuk ${model} belum dipasang.`;
+    lab.title = ok ? `${a.note}${model ? ` Model: ${model}.` : ""}`
+      : h.paused_approaches?.[code] ? `Dijeda sementara: kuota gratis Gemini habis atau lokasi server ditolak.`
+      : `Belum aktif di sini: kunci API untuk ${model} belum dipasang.`;
     lab.innerHTML = `<input type="radio" name="approach" id="approach-${code}" value="${code}" ${ok ? "" : "disabled"}
       ${state.approach === code ? "checked" : ""}><span><b>${code}</b>${a.name}</span>`;
     box.append(lab);
@@ -290,11 +294,29 @@ function renderApproachPicker() {
 function renderApproachNote() {
   const h = state.health;
   const a = state.approach;
-  const missing = Object.keys(APPROACHES).filter((c) => !h.available_approaches.includes(c));
+  const paused = Object.keys(h.paused_approaches || {});
+  const missing = Object.keys(APPROACHES).filter((c) => !h.available_approaches.includes(c) && !paused.includes(c));
   let note = APPROACHES[a].note;
   if (h.models?.[a] && a !== "A") note += ` Model: ${h.models[a]}.`;
+  if (paused.length) {
+    const mins = Math.max(1, Math.ceil(Math.max(...Object.values(h.paused_approaches)) / 60));
+    note += ` Metode ${paused.join(" dan ")} dijeda karena kuota gratis Gemini habis atau Google menolak lokasi server. Muncul lagi sekitar ${mins} menit lagi.`;
+  }
   if (missing.length) note += ` Metode ${missing.join(" dan ")} belum aktif di server ini karena kunci API belum dipasang.`;
   $("#approach-note").textContent = note;
+}
+// B and C pause themselves when Gemini's free quota runs out; re-read /health so the picker follows.
+let healthTimer;
+async function refreshHealth() {
+  try { state.health = await api("GET", "/health"); } catch { return; }
+  const h = state.health;
+  if (!h.available_approaches.includes(state.approach)) {
+    state.approach = h.available_approaches.includes(h.default_approach) ? h.default_approach : h.available_approaches[0];
+  }
+  renderApproachPicker();
+  clearTimeout(healthTimer);
+  const wait = Math.max(0, ...Object.values(h.paused_approaches || {}));
+  if (wait) healthTimer = setTimeout(refreshHealth, (wait + 1) * 1000);
 }
 async function loadSamples() {
   const box = $("#samples");
@@ -347,13 +369,13 @@ async function submit(start, label) {
   };
   paint("queued");
   let job;
-  try { job = await start(); } catch (e) { box.className = "progress failed"; box.textContent = e.message; return; }
+  try { job = await start(); } catch (e) { box.className = "progress failed"; box.textContent = e.message; refreshHealth(); return; }
   for (;;) {
     await new Promise((r) => setTimeout(r, 900));
     let d;
     try { d = await api("GET", `/documents/${job.job_id}`); } catch (e) { continue; }
     if (d.status === "done") { box.hidden = true; state.fromQueue = false; location.hash = `doc-${d.id}`; refreshQueueCount(); return; }
-    if (d.status === "failed") { box.className = "progress failed"; box.textContent = failureText(d.error); return; }
+    if (d.status === "failed") { box.className = "progress failed"; box.textContent = failureText(d.error); refreshHealth(); return; }
     paint(d.status);
   }
 }
