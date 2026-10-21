@@ -14,6 +14,7 @@ import asyncio
 import hashlib
 import json
 import os
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Literal, Optional
 
@@ -114,10 +115,16 @@ def health() -> dict[str, Any]:
     from docex.scoring.score import default_threshold
 
     sections = {"A": None, "B": CFG["llm"], "C": CFG["vlm"]}
+    available = [a for a, s in sections.items() if s is None or llm_available(s)]
+    paused = {a: llm_paused_seconds(s) for a, s in sections.items() if s is not None and llm_paused_seconds(s)}
+    daily = {"limit": int(limits()["llm_daily_docs"]), "used": llm_docs_today()}
+    if daily["used"] >= daily["limit"]:  # B and C share the free Gemini quota: stop offering them for today
+        until_midnight = int((_utc_midnight() + timedelta(days=1) - datetime.now(timezone.utc)).total_seconds())
+        for a in [a for a in available if a != "A"]:
+            available.remove(a)
+            paused[a] = max(paused.get(a, 0), until_midnight)
     return {"ok": True, "default_approach": default_approach(),
-            "available_approaches": [a for a, s in sections.items() if s is None or llm_available(s)],
-            "paused_approaches": {a: llm_paused_seconds(s) for a, s in sections.items()
-                                  if s is not None and llm_paused_seconds(s)},
+            "available_approaches": available, "paused_approaches": paused, "llm_daily": daily,
             "thresholds": {a: default_threshold(a, CFG["scoring"]) for a in sections},
             "critical_fields": validation_config()["critical_fields"],
             "models": {"B": CFG["llm"]["model"], "C": CFG["vlm"]["model"]},
@@ -142,8 +149,40 @@ async def upload(request: Request, file: UploadFile = File(...),
     return _create(data, file.filename or "upload", mime, approach, doc_type, current_sid(request))
 
 
+def limits() -> dict[str, Any]:
+    """Read per request so DOCEX_LIMITS__* overrides apply without a reload."""
+    return pipeline_config()["limits"]
+
+
+def _utc_midnight() -> datetime:
+    return datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def llm_docs_today() -> int:
+    with session() as s:
+        return s.scalar(select(func.count(Document.id)).where(
+            Document.approach.in_(["B", "C"]), Document.created_at >= _utc_midnight())) or 0
+
+
+def _check_caps(sid: str, approach: str, size: int) -> None:
+    """Refuse an upload that would break a demo limit: per-visitor count, total stored bytes, daily B/C use."""
+    lim = limits()
+    window = datetime.now(timezone.utc) - timedelta(minutes=int(lim["retention_minutes"]))
+    with session() as s:
+        mine = s.scalar(select(func.count(Document.id)).where(
+            Document.owner_id == sid, Document.created_at >= window)) or 0
+        stored = s.scalar(select(func.coalesce(func.sum(Document.size_bytes), 0))) or 0
+    if mine >= int(lim["session_max_docs"]):
+        raise HTTPException(429, "session_limit")
+    if stored + size > float(lim["storage_max_mb"]) * 1024 * 1024:
+        raise HTTPException(503, "storage_full")
+    if approach in ("B", "C") and llm_docs_today() >= int(lim["llm_daily_docs"]):
+        raise HTTPException(429, "llm_daily_cap")
+
+
 def _create(data: bytes, filename: str, mime: str, approach: str, doc_type: Optional[str],
             owner_id: str) -> dict[str, Any]:
+    _check_caps(owner_id, approach, len(data))
     digest = hashlib.sha256(data).hexdigest()
     ext = {"application/pdf": ".pdf", "image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp",
            "image/tiff": ".tif"}[mime]

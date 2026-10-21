@@ -230,7 +230,7 @@ def test_null_owner_rows_are_invisible(make_client):
 
 # ------------------------------------------------------------------ retention
 
-def add_doc(tmp_path, doc_id, age_min, status="done", owner="a" * 32, file=True, with_children=False):
+def add_doc(tmp_path, doc_id, age_min, status="done", owner="a" * 32, file=True, with_children=False, approach="A"):
     from datetime import datetime, timedelta, timezone
 
     import docex.db.models as models
@@ -243,7 +243,7 @@ def add_doc(tmp_path, doc_id, age_min, status="done", owner="a" * 32, file=True,
         path.with_name(f"{doc_id}.read.jpg").write_bytes(b"jpg")
     with models.session() as s:
         s.add(models.Document(id=doc_id, filename="x.png", content_type="image/png", sha256="x", size_bytes=10,
-                              storage_path=str(path), approach="A", status=status, owner_id=owner,
+                              storage_path=str(path), approach=approach, status=status, owner_id=owner,
                               created_at=created, updated_at=created))
         if with_children:
             s.flush()
@@ -315,3 +315,54 @@ def test_health_and_cookie_follow_configured_retention(make_client):
     r = c.get("/health")
     assert r.json()["retention_minutes"] == 90
     assert "max-age=5400" in r.headers["set-cookie"].lower()
+
+
+# ------------------------------------------------------------------ abuse caps
+
+def as_visitor(app, sid):
+    return TestClient(app, headers={"Cookie": f"docex_sid={sid}"})
+
+
+def test_session_cap_counts_only_this_visitor_within_retention(make_client, tmp_path):
+    a = make_client({"DOCEX_LIMITS__SESSION_MAX_DOCS": "2"})
+    assert [upload(a).status_code for _ in range(3)] == [202, 202, 429]
+    assert upload(a).json()["detail"] == "session_limit"
+    assert upload(second_visitor(a)).status_code == 202
+    add_doc(tmp_path, "c1", age_min=200, owner="c" * 32)
+    add_doc(tmp_path, "c2", age_min=200, owner="c" * 32)
+    assert upload(as_visitor(a.app, "c" * 32)).status_code == 202  # older than retention: not counted
+
+
+def test_storage_cap(make_client):
+    size = len(png())
+    c = make_client({"DOCEX_LIMITS__STORAGE_MAX_MB": str(2.5 * size / 1048576)})
+    assert [upload(c).status_code for _ in range(3)] == [202, 202, 503]
+    assert upload(c).json()["detail"] == "storage_full"
+
+
+LLM_ENV = {"DOCEX_ENABLE_LLM": "true", "GEMINI_API_KEY": "test", "DOCEX_LIMITS__LLM_DAILY_DOCS": "1"}
+
+
+def test_llm_daily_cap_blocks_b_c_but_not_a(make_client, tmp_path):
+    c = make_client(LLM_ENV)
+    h = c.get("/health").json()
+    assert h["available_approaches"] == ["A", "B", "C"] and h["llm_daily"] == {"limit": 1, "used": 0}
+    add_doc(tmp_path, "c-today", age_min=0, approach="C")
+    h = c.get("/health").json()
+    assert h["available_approaches"] == ["A"] and set(h["paused_approaches"]) == {"B", "C"}
+    assert h["llm_daily"] == {"limit": 1, "used": 1}
+    assert all(0 < v <= 86400 for v in h["paused_approaches"].values())
+    r = upload(c, approach="C")
+    assert r.status_code == 429 and r.json()["detail"] == "llm_daily_cap"
+    assert upload(c, approach="B").json()["detail"] == "llm_daily_cap"
+    assert upload(c).status_code == 202  # approach A is never capped by the daily limit
+
+
+def test_llm_daily_cap_ignores_yesterday(make_client, tmp_path):
+    from datetime import datetime, timezone
+
+    c = make_client(LLM_ENV)
+    now = datetime.now(timezone.utc)
+    add_doc(tmp_path, "c-yesterday", age_min=now.hour * 60 + now.minute + 1, approach="C")  # 23:59 UTC yesterday
+    h = c.get("/health").json()
+    assert h["available_approaches"] == ["A", "B", "C"] and h["llm_daily"]["used"] == 0
