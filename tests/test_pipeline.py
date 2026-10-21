@@ -230,3 +230,18 @@ def test_gemini_needs_opt_in_and_key(monkeypatch):
     assert llm_available(section)
     monkeypatch.delenv("GEMINI_API_KEY")
     assert not llm_available(section)
+
+
+def test_gemini_base_url_override_and_https_guard(monkeypatch):
+    from docex.providers.llm import GeminiProvider, ProviderError
+
+    monkeypatch.setenv("DOCEX_ENABLE_LLM", "true")
+    monkeypatch.setenv("GEMINI_API_KEY", "test")
+    monkeypatch.setenv("GEMINI_BASE_URL", "https://proxy.example.com/v1beta/openai")
+    p = GeminiProvider("gemini-flash-latest")
+    assert str(p._http.base_url).startswith("https://proxy.example.com/v1beta/openai")
+    monkeypatch.setenv("GEMINI_BASE_URL", "http://proxy.example.com/v1beta/openai")
+    with pytest.raises(ProviderError, match="https"):
+        GeminiProvider("gemini-flash-latest")
+    monkeypatch.setenv("GEMINI_BASE_URL", "http://localhost:8080/v1beta/openai")
+    assert GeminiProvider("gemini-flash-latest")  # nothing is sent: the provider only builds its client

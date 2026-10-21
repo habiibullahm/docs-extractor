@@ -1,0 +1,15 @@
+# Reverse proxy for the Gemini API on a host whose IP Google accepts (for example an Indonesian VPS).
+# Needs a TLS certificate for the server_name (certbot --nginx), because the API key is sent in a header.
+server {
+    listen 443 ssl;
+    server_name gemini-proxy.example.com;
+    # ssl_certificate / ssl_certificate_key are added by certbot
+
+    location /v1beta/ {
+        proxy_pass https://generativelanguage.googleapis.com;
+        proxy_set_header Host generativelanguage.googleapis.com;
+        proxy_ssl_server_name on;
+        proxy_buffering off;
+        proxy_read_timeout 120s;
+    }
+}

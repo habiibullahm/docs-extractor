@@ -202,6 +202,15 @@ class OpenAIProvider(OpenAICompatibleProvider):
                          max_tokens=max_tokens)
 
 
+def _require_https(url: str) -> None:
+    """The API key travels in a header, so a non-local base URL (a reverse proxy) must use TLS."""
+    from urllib.parse import urlparse
+
+    u = urlparse(url)
+    if u.scheme != "https" and u.hostname not in ("localhost", "127.0.0.1", "::1"):
+        raise ProviderError(f"base URL {url!r} must use https (the API key is sent in a header)")
+
+
 class GeminiProvider(OpenAICompatibleProvider):
     """Gemini API (generativelanguage.googleapis.com) via its OpenAI-compatible endpoint; key from GEMINI_API_KEY.
 
@@ -225,6 +234,8 @@ class GeminiProvider(OpenAICompatibleProvider):
         key = os.environ.get("GEMINI_API_KEY")
         if not key:
             raise ProviderError("GEMINI_API_KEY is not set")
+        base_url = os.environ.get("GEMINI_BASE_URL") or base_url
+        _require_https(base_url)
         super().__init__(base_url, model, api_key=key, timeout=120, max_tokens=max_tokens)
         self.min_interval_s = min_interval_s
         self.max_retries = max_retries
