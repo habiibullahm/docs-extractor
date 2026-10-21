@@ -509,7 +509,7 @@ function fieldRow(path, en, idLabel, kind, ex, critical, corrected) {
 
 function itemsTable(items) {
   const rows = items.map((it, i) => itemRow(it, i)).join("");
-  return `<section class="group" aria-labelledby="items-title"><h3 class="group-title" id="items-title">Rincian barang</h3>
+  return `<section class="group" aria-labelledby="items-title"><h2 class="group-title" id="items-title">Rincian barang</h2>
     <div class="items-wrap"><table class="items"><thead><tr><th class="num">#</th>
     ${ITEM_COLS.map(([, l, k]) => `<th${k !== "text" ? ' class="num"' : ""}>${l}</th>`).join("")}<th><span class="sr">Hapus</span></th></tr></thead>
     <tbody id="items-body">${rows}</tbody></table></div>
@@ -546,7 +546,7 @@ function renderDoc(d) {
   const items = corrected
     ? (corrected.line_items || []).map((it) => Object.fromEntries(Object.entries(it).map(([k, v]) => [k, typeof v === "boolean" ? v : { value: v, confidence: 1 }])))
     : ex.line_items || [];
-  const groups = (LAYOUT[type] || []).map((g) => `<section class="group"><h3 class="group-title">${esc(g.title)}</h3>
+  const groups = (LAYOUT[type] || []).map((g) => `<section class="group"><h2 class="group-title">${esc(g.title)}</h2>
       ${g.items.map(([p, en, idl, kind]) => fieldRow(p, en, idl, kind, ex, critical.has(p), corrected)).join("")}</section>`).join("");
   const issues = (d.issues || []).map((i) => `<li class="${i.severity}" title="${esc(i.message)}">${esc(issueText(i, type, d.values))}
       ${i.fields?.length ? ` <a data-goto="${esc(i.fields[0])}">Lihat kolomnya</a>` : ""}${tapeHtml(i, type, d.values)}</li>`).join("");
@@ -554,6 +554,7 @@ function renderDoc(d) {
   const qi = state.queue.findIndex((q) => q.id === d.id);
 
   view.innerHTML = `
+    <h1 class="sr-only">Cek dokumen ${esc(d.filename)}</h1>
     <div class="doc-head">
       <button type="button" class="back" id="back">${state.fromQueue ? "Kembali ke antrean" : "Kembali ke Coba dokumen"}</button>
       <span class="fname">${esc(d.filename)}</span>
@@ -913,7 +914,7 @@ function correctionsSection(c) {
     <p class="empty">Belum ada koreksi. Di Antrean cek, ubah sebuah kolom lalu pilih Simpan koreksi, nanti kolom itu muncul di sini.</p></section>`;
   const pct = (v) => `${(v * 100).toLocaleString("id-ID", { maximumFractionDigits: 0 })}%`;
   return `<section class="metrics-sec"><h2>Kolom yang paling sering dikoreksi</h2>${intro}
-    <div class="table-wrap narrow"><table><thead><tr><th>Kolom</th><th class="num">Dikoreksi</th><th class="num">Dari ${c.documents} dokumen yang dikoreksi</th></tr></thead><tbody>
+    <div class="table-wrap narrow" tabindex="0" role="region" aria-label="Kolom yang paling sering dikoreksi"><table><thead><tr><th>Kolom</th><th class="num">Dikoreksi</th><th class="num">Dari ${c.documents} dokumen yang dikoreksi</th></tr></thead><tbody>
       ${rows.map((r) => `<tr><td>${esc(anyFieldLabel(r.path))}</td><td class="num">${r.count} kali</td><td class="num">${pct(r.count / c.documents)}</td></tr>`).join("")}
     </tbody></table></div></section>`;
 }
@@ -940,7 +941,7 @@ async function loadMetrics() {
     ${correctionsSection(m.corrections_by_field)}
     <section class="metrics-sec"><h2>Hasil uji dengan data contoh</h2>
       <p class="src">Diuji pada data sintetis set ${esc(m.offline_eval?.split || "dev")}, dari <code>eval/reports/summary.json</code>. Akurasi kolom menghitung setiap kolom. Akurasi dokumen hanya menghitung dokumen yang semua kolom pentingnya benar.</p>
-      ${off.length ? `<div class="table-wrap"><table><thead><tr><th>Metode</th><th class="num">Dokumen</th><th class="num">Akurasi kolom</th>
+      ${off.length ? `<div class="table-wrap" tabindex="0" role="region" aria-label="Hasil uji per metode"><table><thead><tr><th>Metode</th><th class="num">Dokumen</th><th class="num">Akurasi kolom</th>
         <th class="num">Akurasi dokumen</th><th class="num">Ketepatan rincian barang (F1)</th><th class="num">Disetujui otomatis</th>
         <th class="num">Biaya per 1.000 dokumen</th><th class="num">Waktu proses biasa</th></tr></thead><tbody>
         ${off.map((a) => `<tr><td>${esc(a.approach)}</td><td class="num">${a.n}</td><td class="num">${pct(a.field_accuracy)}</td>
