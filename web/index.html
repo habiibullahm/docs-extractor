@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>docex: meja cek dokumen</title>
 <meta name="description" content="Ambil data dari faktur pajak, invoice, dan struk, lalu cek hasilnya.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='4' y='2' width='24' height='28' rx='3' fill='%233B3FA8'/%3E%3Cpath d='M10 10h12M10 16h12M10 22h7' stroke='white' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='4' y='2' width='24' height='28' rx='3' fill='%23171717'/%3E%3Cpath d='M10 10h12M10 16h12M10 22h7' stroke='white' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@700&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -16,16 +16,16 @@
   <button type="button" class="menu" id="menu" aria-controls="sidebar" aria-expanded="true" aria-label="Menu navigasi">
     <svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true" focusable="false"><path d="M3 5.5h14M3 10h14M3 14.5h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
   </button>
-  <a class="brand" href="#extract">docex <span>meja cek dokumen</span></a>
+  <a class="brand" href="#extract">docex <span>cek dokumen</span></a>
   <div class="deploy" id="deploy-info"></div>
 </header>
 
 <div class="shell" id="shell">
   <div class="sidebar" id="sidebar">
     <nav class="nav" aria-label="Menu utama">
-      <a href="#extract" data-view="extract">Coba dokumen</a>
-      <a href="#queue" data-view="queue">Antrean cek <span class="count" id="queue-count" hidden></span></a>
-      <a href="#metrics" data-view="metrics">Hasil &amp; angka</a>
+      <a href="#extract" data-view="extract"><svg class="i" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 8h8"/><path d="M7 12h10"/><path d="M7 16h6"/></svg><span>Coba dokumen</span></a>
+      <a href="#queue" data-view="queue"><svg class="i" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></svg><span>Perlu dicek</span> <span class="count" id="queue-count" hidden></span></a>
+      <a href="#metrics" data-view="metrics"><svg class="i" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg><span>Hasil</span></a>
     </nav>
   </div>
   <div class="scrim" id="scrim" hidden></div>
@@ -34,8 +34,7 @@
   <section class="view" id="view-extract" hidden>
     <div class="pane-head">
       <h1>Coba dokumen</h1>
-      <p class="lede">Pilih contoh faktur pajak, invoice, atau struk, atau unggah scan milikmu.
-        Sistem akan membaca dokumennya, mengambil datanya, lalu menampilkan hasilnya untuk dicek.</p>
+      <p class="lede">Pilih satu contoh atau unggah scan milikmu. Sistem membacanya, lalu kamu tinggal mengecek hasilnya.</p>
     </div>
 
     <div class="try-controls">
@@ -54,11 +53,12 @@
         <h2 class="label">Unggah file</h2>
         <label class="drop" id="drop" for="file-input">
           <input type="file" id="file-input" accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/*">
-          <strong>Tarik file PDF atau gambar ke sini</strong>
-          <span>atau klik untuk memilih file. PDF, PNG, JPG, atau WEBP, maksimal <span id="max-mb">10</span> MB</span>
+          <svg class="i" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+          <strong>Tarik file ke sini atau klik untuk memilih</strong>
+          <span>PDF, PNG, JPG, atau WEBP. Maksimal <span id="max-mb">10</span> MB.</span>
         </label>
-        <p class="privacy">File yang diunggah disimpan di server demo ini, dan antrean cek bisa dilihat siapa saja yang membukanya.
-          Jangan unggah dokumen asli yang berisi NPWP atau NIK seseorang.</p>
+        <p class="privacy">File yang kamu unggah tersimpan di server demo dan bisa dilihat siapa saja yang membuka halaman Perlu dicek.
+          Jangan unggah dokumen asli yang memuat NPWP atau NIK.</p>
         <div class="progress" id="progress" hidden></div>
       </div>
     </div>
@@ -66,13 +66,13 @@
 
   <section class="view" id="view-queue" hidden>
     <div class="pane-head">
-      <h1>Antrean cek</h1>
-      <p class="lede">Dokumen yang skornya di bawah batas, jadi perlu dicek manusia. Skor terendah ada di atas.
+      <h1>Perlu dicek</h1>
+      <p class="lede">Dokumen yang sistem kurang yakin membacanya. Yang paling ragu ada di atas.
         Klik baris atau tekan <kbd>Enter</kbd> untuk membukanya.</p>
     </div>
     <div class="table-wrap">
       <table class="queue">
-        <thead><tr><th>File</th><th>Jenis</th><th>Skor</th><th>Alasan perlu dicek</th><th>Masuk</th></tr></thead>
+        <thead><tr><th>File</th><th>Jenis</th><th>Keyakinan</th><th>Yang perlu dicek</th><th>Masuk</th></tr></thead>
         <tbody id="queue-body"></tbody>
       </table>
     </div>
@@ -82,7 +82,7 @@
 
   <section class="view" id="view-metrics" hidden>
     <div class="pane-head">
-      <h1>Hasil &amp; angka</h1>
+      <h1>Hasil</h1>
     </div>
     <div id="metrics"></div>
   </section>
