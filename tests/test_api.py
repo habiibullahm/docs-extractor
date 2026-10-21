@@ -144,3 +144,14 @@ def test_corrections_by_field_counts_documents_and_collapses_line_items():
     r = corrections_by_field([["total", "line_items.0.total", "line_items.1.total"], ["total"], ["date"], []])
     assert r == {"documents": 4, "fields": [{"path": "total", "count": 2}, {"path": "date", "count": 1},
                                             {"path": "line_items", "count": 1}]}
+
+
+def test_default_approach_is_a_even_with_a_key(monkeypatch):
+    from docex.api.app import default_approach
+
+    monkeypatch.setenv("GEMINI_API_KEY", "test")
+    monkeypatch.setenv("DOCEX_ENABLE_LLM", "true")
+    monkeypatch.delenv("DOCEX_APPROACH", raising=False)
+    assert default_approach() == "A"
+    monkeypatch.setenv("DOCEX_APPROACH", "c")
+    assert default_approach() == "C"

@@ -55,11 +55,9 @@ def _startup() -> None:
 
 
 def default_approach() -> str:
-    """C when a VLM is configured and has credentials, otherwise the local baseline A."""
+    """The local baseline A unless DOCEX_APPROACH says otherwise: B and C use a rate-limited free-tier key."""
     env = os.environ.get("DOCEX_APPROACH")
-    if env:
-        return env.upper()
-    return "C" if llm_available(CFG["vlm"]) else "A"
+    return env.upper() if env else "A"
 
 
 def sniff(data: bytes) -> Optional[str]:
