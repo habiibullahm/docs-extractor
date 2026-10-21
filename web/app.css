@@ -195,7 +195,8 @@ td { padding: 10px 14px; border-top: 1px solid var(--line); vertical-align: midd
 td.num, th.num { text-align: right; }
 .table-wrap.narrow { max-width: 640px; }
 .queue tbody tr { cursor: pointer; transition: background-color 120ms; }
-.queue tbody tr:hover, .queue tbody tr:focus-visible { background: var(--ink-tint); outline: none; }
+.queue tbody tr:hover, .queue tbody tr:focus-visible { background: var(--ink-tint); }
+.queue tbody tr:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
 .queue .file { font-family: var(--font-data); font-size: 13px; }
 .queue .reason { color: var(--fg-muted); max-width: 42ch; }
 .queue .age { color: var(--fg-muted); white-space: nowrap; }
