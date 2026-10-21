@@ -8,6 +8,10 @@ from fastapi.testclient import TestClient
 from PIL import Image
 
 
+async def _idle_cleaner(*_args, **_kwargs):
+    """Stands in for the background cleaner: tests call purge_expired() themselves and count what it removes."""
+
+
 @pytest.fixture()
 def make_client(tmp_path, monkeypatch):
     """make_client(env) reloads the app with extra env set first and returns a TestClient (one visitor)."""
@@ -22,7 +26,11 @@ def make_client(tmp_path, monkeypatch):
             monkeypatch.setenv(k, v)
         import docex.api.app as app_mod
         import docex.db.models as models
+        import docex.db.retention as retention
 
+        # app.py binds purge_loop at import, so patch it before the reload. The real loop purges on startup in a
+        # thread, which can remove seeded rows before a test's own purge_expired() call and change its count.
+        monkeypatch.setattr(retention, "purge_loop", _idle_cleaner)
         models._Session = None
         importlib.reload(app_mod)
         c = TestClient(app_mod.app, **client_kwargs)
