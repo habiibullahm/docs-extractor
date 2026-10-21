@@ -3,7 +3,7 @@
     python -m eval.summarize --split dev
 
 Writes eval/reports/comparison.md and eval/reports/summary.json (served by GET /metrics
-and embedded in the README between the RESULTS markers).
+and embedded in docs/technical.md between the RESULTS markers).
 """
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from typing import Any
 from eval.report import pct
 
 REPORTS = Path(__file__).parent / "reports"
-README = Path(__file__).parents[1] / "README.md"
+DOC = Path(__file__).parents[1] / "docs" / "technical.md"
 NAMES = {"A": "A · OCR + regex", "B": "B · OCR + LLM", "C": "C · Vision LLM"}
 
 
@@ -79,7 +79,7 @@ def by_type(runs: dict[str, dict[str, Any]]) -> str:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--split", default="dev")
-    ap.add_argument("--readme", action="store_true", help="also update the README results block")
+    ap.add_argument("--docs", "--readme", dest="docs", action="store_true", help="also update the results block in docs/technical.md")
     args = ap.parse_args()
     runs = latest_runs(args.split)
     if not runs:
@@ -106,12 +106,12 @@ def main() -> None:
          "latency_p50_s": round(m["overall"]["latency_p50_ms"] / 1000, 2)} for a, m in runs.items()]}
     if args.split == "dev":
         (REPORTS / "summary.json").write_text(json.dumps(summary, indent=1))
-    if args.readme and README.exists():
-        text = README.read_text()
+    if args.docs and DOC.exists():
+        text = DOC.read_text()
         start, end = f"<!-- RESULTS:{args.split}:START -->", f"<!-- RESULTS:{args.split}:END -->"
-        block = f"{start}\n{body_for('eval/reports/')}\n{end}"
+        block = f"{start}\n{body_for('../eval/reports/')}\n{end}"
         text = re.sub(re.escape(start) + ".*" + re.escape(end), lambda _: block, text, flags=re.S)
-        README.write_text(text)
+        DOC.write_text(text)
     print(body)
 
 
