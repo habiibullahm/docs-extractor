@@ -10,6 +10,7 @@ GET  /                   review UI (static app in web/, see design.md)
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import os
@@ -28,6 +29,7 @@ from sqlalchemy import func, select
 from docex.api.session import client_ip, current_sid, session_middleware
 from docex.config import DATA_DIR, ROOT, pipeline_config, validation_config
 from docex.db.models import Document, Extraction, Review, get_document, init_db, review_queue, session
+from docex.db.retention import purge_loop
 from docex.observability import configure_logging, get_logger
 from docex.preprocess.image import load_pages
 from docex.providers.llm import llm_available, llm_paused_seconds
@@ -53,6 +55,16 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 def _startup() -> None:
     STORAGE.mkdir(parents=True, exist_ok=True)
     init_db()
+
+
+@app.on_event("startup")
+async def _start_cleaner() -> None:
+    app.state.purge_task = asyncio.create_task(purge_loop())
+
+
+@app.on_event("shutdown")
+async def _stop_cleaner() -> None:
+    app.state.purge_task.cancel()
 
 
 def default_approach() -> str:
@@ -109,7 +121,8 @@ def health() -> dict[str, Any]:
             "thresholds": {a: default_threshold(a, CFG["scoring"]) for a in sections},
             "critical_fields": validation_config()["critical_fields"],
             "models": {"B": CFG["llm"]["model"], "C": CFG["vlm"]["model"]},
-            "max_upload_mb": LIMITS["max_upload_mb"]}
+            "max_upload_mb": LIMITS["max_upload_mb"],
+            "retention_minutes": int(pipeline_config()["limits"]["retention_minutes"])}
 
 
 @app.post("/documents", status_code=202)

@@ -226,3 +226,92 @@ def test_null_owner_rows_are_invisible(make_client):
     assert a.get("/documents/legacy").status_code == 404
     assert a.get("/documents").json() == []
     assert a.get("/metrics").json()["documents"] == 0
+
+
+# ------------------------------------------------------------------ retention
+
+def add_doc(tmp_path, doc_id, age_min, status="done", owner="a" * 32, file=True, with_children=False):
+    from datetime import datetime, timedelta, timezone
+
+    import docex.db.models as models
+
+    created = datetime.now(timezone.utc) - timedelta(minutes=age_min)
+    path = tmp_path / "uploads" / f"{doc_id}.png"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if file:
+        path.write_bytes(png())
+        path.with_name(f"{doc_id}.read.jpg").write_bytes(b"jpg")
+    with models.session() as s:
+        s.add(models.Document(id=doc_id, filename="x.png", content_type="image/png", sha256="x", size_bytes=10,
+                              storage_path=str(path), approach="A", status=status, owner_id=owner,
+                              created_at=created, updated_at=created))
+        if with_children:
+            s.flush()
+            ex = models.Extraction(document_id=doc_id, doc_type="receipt", route="review", score=0.5, approach="A",
+                                   versions={}, result={})
+            s.add(ex)
+            s.flush()
+            s.add(models.Review(document_id=doc_id, extraction_id=ex.id, action="approve"))
+    return path
+
+
+def doc_ids():
+    import docex.db.models as models
+    from sqlalchemy import select
+
+    with models.session() as s:
+        return set(s.scalars(select(models.Document.id)).all())
+
+
+def test_purge_removes_files_and_rows_past_retention(make_client, tmp_path):
+    from docex.db.retention import purge_expired
+
+    make_client()
+    old = add_doc(tmp_path, "old", age_min=130, with_children=True)
+    young = add_doc(tmp_path, "young", age_min=10)
+    assert purge_expired() == 1
+    assert doc_ids() == {"young"}
+    assert not old.exists() and not old.with_name("old.read.jpg").exists() and young.exists()
+
+
+def test_purge_keeps_young_running_job_and_removes_stuck_one(make_client, tmp_path):
+    from docex.db.retention import purge_expired
+
+    make_client()
+    add_doc(tmp_path, "running", age_min=5, status="processing")
+    add_doc(tmp_path, "stuck", age_min=45, status="processing")
+    add_doc(tmp_path, "queued", age_min=5, status="queued")
+    assert purge_expired(retention_minutes=1) == 1
+    assert doc_ids() == {"running", "queued"}
+
+
+def test_purge_survives_missing_file_and_removes_null_owner_rows(make_client, tmp_path):
+    from docex.db.retention import purge_expired
+
+    make_client()
+    add_doc(tmp_path, "nofile", age_min=200, file=False)
+    add_doc(tmp_path, "legacy", age_min=200, owner=None)
+    assert purge_expired() == 2 and doc_ids() == set()
+
+
+def test_deleted_document_is_404(make_client):
+    from datetime import datetime, timedelta, timezone
+
+    import docex.db.models as models
+    from docex.db.retention import purge_expired
+
+    c = make_client()
+    doc_id = upload(c).json()["job_id"]
+    wait(c, doc_id)
+    with models.session() as s:
+        s.get(models.Document, doc_id).created_at = datetime.now(timezone.utc) - timedelta(hours=3)
+    assert purge_expired() == 1
+    assert c.get(f"/documents/{doc_id}").status_code == 404
+    assert c.get(f"/documents/{doc_id}/preview").status_code == 404
+
+
+def test_health_and_cookie_follow_configured_retention(make_client):
+    c = make_client({"DOCEX_LIMITS__RETENTION_MINUTES": "90"})
+    r = c.get("/health")
+    assert r.json()["retention_minutes"] == 90
+    assert "max-age=5400" in r.headers["set-cookie"].lower()
