@@ -72,7 +72,7 @@ server-side storage at all (the review queue and export would need a rewrite for
 
 ### 3. Retention
 
-* Config `limits.retention_minutes` (default 120), env override `DOCEX_RETENTION_MINUTES`.
+* Config `limits.retention_minutes` (default 120), env override `DOCEX_LIMITS__RETENTION_MINUTES` (the existing `DOCEX_<SECTION>__<KEY>` convention; it only works for keys that exist in `configs/pipeline.yaml`).
 * `purge_expired()` deletes documents with `created_at` older than the cutoff: the stored file, the cached
   page-read image (`read_page_path`), then reviews, extractions and the document row. It skips documents whose
   status is `queued` or `processing` and younger than 30 minutes, so an active job is never pulled out from under
@@ -91,7 +91,7 @@ the UI shows in plain Indonesian.
 | Limit | Default | Error |
 |---|---|---|
 | Documents per session within the retention window | 20 | 429 `session_limit` |
-| Total bytes in the upload folder | 500 MB | 503 `storage_full` |
+| Total size of stored documents (`sum(documents.size_bytes)`) | 500 MB | 503 `storage_full` |
 | B/C documents per day, across all visitors | 20 (about 60 free-tier requests) | 429 `llm_daily_cap`, and `/health` lists B and C in `paused_approaches` |
 
 The existing per-IP rate limit and 10 MB cap stay. Counts come from the database, so they survive restarts.
