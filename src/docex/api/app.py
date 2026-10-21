@@ -23,9 +23,9 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
 from sqlalchemy import func, select
 
+from docex.api.session import client_ip, session_middleware
 from docex.config import DATA_DIR, ROOT, pipeline_config, validation_config
 from docex.db.models import Document, Extraction, Review, get_document, init_db, review_queue, session
 from docex.observability import configure_logging, get_logger
@@ -42,9 +42,10 @@ MAGIC = {b"%PDF-": "application/pdf", b"\x89PNG": "image/png", b"\xff\xd8\xff": 
 
 configure_logging(os.environ.get("LOG_LEVEL", "INFO"))
 log = get_logger("docex.api")
-limiter = Limiter(key_func=get_remote_address, default_limits=[])
+limiter = Limiter(key_func=client_ip, default_limits=[])
 app = FastAPI(title="docex — Indonesian financial document extraction", version="0.1.0")
 app.state.limiter = limiter
+app.middleware("http")(session_middleware)
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 

@@ -69,6 +69,11 @@ scoring:
 limits:
   max_upload_mb: 10
   rate_limit: "30/minute"
+  # Public demo: uploads are private to one browser (cookie) and deleted after retention_minutes.
+  retention_minutes: 120
+  session_max_docs: 20        # documents per visitor within the retention window
+  storage_max_mb: 500         # total size of stored documents
+  llm_daily_docs: 20          # B/C documents per UTC day across all visitors (free Gemini quota)
   allowed_types: ["application/pdf", "image/png", "image/jpeg", "image/webp", "image/tiff"]
 
 costs:
