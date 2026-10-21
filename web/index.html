@@ -13,16 +13,24 @@
 </head>
 <body>
 <header class="topbar">
+  <button type="button" class="menu" id="menu" aria-controls="sidebar" aria-expanded="true" aria-label="Menu navigasi">
+    <svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true" focusable="false"><path d="M3 5.5h14M3 10h14M3 14.5h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+  </button>
   <a class="brand" href="#extract">docex <span>meja cek dokumen</span></a>
-  <nav class="nav" aria-label="Menu utama">
-    <a href="#extract" data-view="extract">Coba dokumen</a>
-    <a href="#queue" data-view="queue">Antrean cek <span class="count" id="queue-count" hidden></span></a>
-    <a href="#metrics" data-view="metrics">Hasil &amp; angka</a>
-  </nav>
   <div class="deploy" id="deploy-info"></div>
 </header>
 
-<main id="app">
+<div class="shell" id="shell">
+  <div class="sidebar" id="sidebar">
+    <nav class="nav" aria-label="Menu utama">
+      <a href="#extract" data-view="extract">Coba dokumen</a>
+      <a href="#queue" data-view="queue">Antrean cek <span class="count" id="queue-count" hidden></span></a>
+      <a href="#metrics" data-view="metrics">Hasil &amp; angka</a>
+    </nav>
+  </div>
+  <div class="scrim" id="scrim" hidden></div>
+
+<main id="app" tabindex="-1">
   <section class="view" id="view-extract" hidden>
     <div class="pane-head">
       <h1>Coba dokumen</h1>
@@ -79,6 +87,7 @@
     <div id="metrics"></div>
   </section>
 </main>
+</div>
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <script src="/web/app.js"></script>

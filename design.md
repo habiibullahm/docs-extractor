@@ -39,8 +39,34 @@ The product has three jobs, in this order:
 | Workspace | none | `#doc-<id>` | Scan on the left, fields on the right, actions at the bottom. Shared by the try and review flows. |
 | Results and numbers | Hasil & angka | `#metrics` | Download of approved data, live counts, which fields get corrected most, and the offline comparison. |
 
-The top bar holds the product name, the three menu items, the queue count, and the default method on this
-deployment. There is no sidebar, because the workspace needs the full width.
+The top bar holds the menu button, the product name and the default method on this deployment. The three menu items
+and the queue count live in the sidebar (see "App shell"). The workspace can take the full width by collapsing it.
+
+## App shell
+
+```
++--------------------------------------------------------------------------------+
+| [=]  docex  meja cek dokumen                                  Metode bawaan A   |  top bar, 52px
++--------------+-----------------------------------------------------------------+
+| Coba dokumen |                                                                 |
+| Antrean  (12)|   the current view                                              |  sidebar 220px
+| Hasil & angka|                                                                 |
++--------------+-----------------------------------------------------------------+
+```
+
+- **Menu button** (hamburger, 40px) at the left of the top bar. It is the only control in the shell besides the
+  three links. It has `aria-controls="sidebar"` and `aria-expanded`, and the label "Menu navigasi".
+- **Wide screens (above 900px).** The sidebar is open by default and sits beside the page, `--surface` with a
+  `--line` edge, sticky under the top bar. The button collapses it to nothing so the workspace gets the full width,
+  and the choice is remembered in the browser. A collapsed sidebar is `inert`, so its links leave the tab order.
+- **Narrow screens (900px and below).** The sidebar is a drawer over the page (280px at most, 85% of the width),
+  closed by default, with a dim area behind it that starts under the top bar. Opening it moves focus to the current
+  page link and makes the page behind `inert`; Tab wraps between the button and the links. Esc, tapping the dim area,
+  or choosing a page closes it. Esc and the dim area return focus to the button, choosing a page puts focus on the
+  page. Crossing the 900px line resets to that width's default.
+- **Links** are 40px high text rows, no icons. The current page is `--ink-tint` with `--ink` text, and the queue
+  count sits at the right of its row. The workspace is not a menu item, so it has no current row.
+- Motion: the drawer and the collapse move in 160ms and drop to nothing under `prefers-reduced-motion`.
 
 ## Visual language
 
@@ -318,6 +344,8 @@ Every view has a loading, empty and error state. Copy is plain Indonesian, names
 - Text contrast is at least 4.5:1 in both themes, and the edge of every control is at least 3:1
   (`--line-strong`). The table above lists the measured values.
 - Every control works from the keyboard, every input has a visible label, and the focus ring is always visible.
+- The menu button reports `aria-expanded`. While the drawer is open the page behind it is `inert`, Esc closes it and
+  returns focus to the button, and a closed sidebar is `inert` so hidden links cannot be tabbed to.
 - The scan image has alt text naming the file and the document type. The source box layer is hidden from assistive
   technology because the same information is in the field's own text.
 - At 390px width nothing scrolls horizontally except the line items table, which scrolls inside its own container.
@@ -332,11 +360,12 @@ Every view has a loading, empty and error state. Copy is plain Indonesian, names
 | "Why" column in the queue lists weak fields | Audit: only one reason is visible before opening a document | PR 2 |
 | "Fields corrected most often" table | Audit: `changed_fields` is stored and never used | PR 2 |
 | Source box on the scan, "Tandai kolom lemah", OCR-read page served as the scan | Audit: a field does not point to where it came from | PR 3 |
+| Sidebar with a hamburger button in the top bar, drawer on narrow screens | Navigation request: the menu moves out of the top bar, and the workspace can reclaim the width | Shell PR |
 | One type family (IBM Plex Sans, Condensed for the stamp, Mono for values) in place of three faces | Fewer font requests, forms-and-ledger character, no pairing that reads as a default | PR 1 |
 | Sentence-case labels in place of tracked uppercase labels in headers, chips and tags | Reads as a template tell | PR 1 |
 | `--line-strong` on every control edge | The current `--line` edge is 1.4:1 on white, below the 3:1 needed for a control boundary | PR 1 |
 
-Not changing: layout, colour tokens other than the one added, the stamp, the Indonesian copy, and the tabular
+Not changing: the views themselves, colour tokens other than the one added, the stamp, the Indonesian copy, and the tabular
 figures. Not building now: drawing a box on the scan to fill a missing field, a command palette, or a template
 dashboard.
 
