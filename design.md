@@ -348,8 +348,14 @@ Every view has a loading, empty and error state. Copy is plain Indonesian, names
   returns focus to the button, and a closed sidebar is `inert` so hidden links cannot be tabbed to.
 - The scan image has alt text naming the file and the document type. The source box layer is hidden from assistive
   technology because the same information is in the field's own text.
-- At 390px width nothing scrolls horizontally except the line items table, which scrolls inside its own container.
-  Touch targets are at least 40px high in the action bar and the queue.
+- At 390px width nothing scrolls horizontally except the tables, which scroll inside their own container. Each of those
+  containers is focusable (`tabindex="0"`, `role="region"`, a label) so a keyboard user can scroll it. The method picker
+  wraps onto a second line instead of running off the screen. Touch targets are at least 40px high in the action bar and
+  the queue.
+- Every view has one `h1`, and headings go down one level at a time. In the workspace the `h1` is visually hidden and
+  names the file, and each field group is an `h2`.
+- A chip that carries text on a tint (`.chip.warn`) uses the solid `--warn-tint` pair, which measures 4.8:1 in light and
+  7.2:1 in dark, not a translucent mix whose result depends on what sits behind it.
 
 ## Changes from the current UI
 
@@ -361,6 +367,7 @@ Every view has a loading, empty and error state. Copy is plain Indonesian, names
 | "Fields corrected most often" table | Audit: `changed_fields` is stored and never used | PR 2 |
 | Source box on the scan, "Tandai kolom lemah", OCR-read page served as the scan | Audit: a field does not point to where it came from | PR 3 |
 | Sidebar with a hamburger button in the top bar, drawer on narrow screens | Navigation request: the menu moves out of the top bar, and the workspace can reclaim the width | Shell PR |
+| Heading structure, focusable table containers, solid warn chip, wrapping method picker | Design review (axe-core found 3 failures, a manual pass found a 15px overflow at 390px) | Review PR |
 | One type family (IBM Plex Sans, Condensed for the stamp, Mono for values) in place of three faces | Fewer font requests, forms-and-ledger character, no pairing that reads as a default | PR 1 |
 | Sentence-case labels in place of tracked uppercase labels in headers, chips and tags | Reads as a template tell | PR 1 |
 | `--line-strong` on every control edge | The current `--line` edge is 1.4:1 on white, below the 3:1 needed for a control boundary | PR 1 |
