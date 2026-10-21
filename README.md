@@ -341,6 +341,12 @@ uses the IP the call leaves from). Set `GEMINI_BASE_URL` in the same `.env` to a
 `/v1beta/*`; `deploy/gemini-proxy/` has a Cloudflare Worker (the live demo uses one) and an nginx example. The
 Worker holds no key. Open its address first: it must show `gemini-proxy ok`.
 
+When Gemini answers 429 (free quota used up) or the location error, the API pauses B and C for
+`DOCEX_LLM_COOLDOWN_S` seconds (default 900). During the pause `/health` lists them under `paused_approaches`
+instead of `available_approaches`, uploads with B or C get a 400 that says "paused", and the review desk greys
+them out and selects A. They come back by themselves when the pause ends. The pause lives in the server process,
+so a restart clears it.
+
 `deploy.yml` can also push the same container to a Hugging Face Docker Space when the `HF_TOKEN` secret is set.
 
 ## Repository layout
