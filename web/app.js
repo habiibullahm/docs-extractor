@@ -217,6 +217,44 @@ function toast(msg, isErr = false) {
   toastTimer = setTimeout(() => { t.hidden = true; }, isErr ? 7000 : 3500);
 }
 
+// ---------------------------------------------------------------- sidebar and menu button
+// Wide screens: the sidebar sits beside the page and the button collapses it (remembered). Narrow screens: it is a
+// drawer over the page, closed by default, closed again by Esc, the dim area or choosing a page.
+function initShell() {
+  const shell = $("#shell"), btn = $("#menu"), side = $("#sidebar"), scrim = $("#scrim"), app = $("#app");
+  const narrow = matchMedia("(max-width: 900px)");
+  const links = () => [...side.querySelectorAll("a")];
+  function set(open) {
+    shell.dataset.nav = open ? "open" : "closed";
+    btn.setAttribute("aria-expanded", String(open));
+    side.inert = !open;
+    scrim.hidden = !(open && narrow.matches);
+    app.inert = open && narrow.matches;  // behind the drawer nothing can be tabbed to
+    if (!narrow.matches) localSet("nav", open ? "open" : "closed");
+  }
+  const isOpen = () => shell.dataset.nav === "open";
+  const reset = () => set(!narrow.matches && localGet("nav") !== "closed");
+  reset();
+  narrow.addEventListener("change", reset);
+  btn.onclick = () => {
+    set(!isOpen());
+    if (isOpen() && narrow.matches) (side.querySelector('a[aria-current="page"]') || links()[0]).focus();
+  };
+  scrim.onclick = () => { set(false); btn.focus(); };
+  side.addEventListener("click", (e) => {
+    if (e.target.closest("a") && narrow.matches) { set(false); app.focus({ preventScroll: true }); }
+  });
+  document.addEventListener("keydown", (e) => {
+    if (!narrow.matches || !isOpen()) return;
+    if (e.key === "Escape") { set(false); btn.focus(); return; }
+    if (e.key !== "Tab") return;
+    const ring = [btn, ...links()];
+    const at = ring.indexOf(document.activeElement);
+    if (e.shiftKey && at <= 0) { e.preventDefault(); ring.at(-1).focus(); }
+    else if (!e.shiftKey && at === ring.length - 1) { e.preventDefault(); btn.focus(); }
+  });
+}
+
 // ---------------------------------------------------------------- router
 function route() {
   const h = location.hash.slice(1) || (state.queue.length ? "queue" : "extract");
@@ -953,6 +991,7 @@ function localSet(k, v) { try { localStorage.setItem(`docex.${k}`, v); } catch {
 
 // ---------------------------------------------------------------- boot
 (async function boot() {
+  initShell();
   try { state.health = await api("GET", "/health"); } catch (e) {
     document.body.insertAdjacentHTML("beforeend", `<p class="empty">Server tidak bisa dihubungi (${esc(e.message)}). Muat ulang halaman ini sebentar lagi.</p>`);
     return;
