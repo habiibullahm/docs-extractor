@@ -228,7 +228,7 @@ The figures below are an illustration of the layout, not data.
 | `/` | Outside inputs | Focus the outlined field, or the first one that needs checking |
 | `Enter` | In a field | Mark it checked and move to the next field that needs checking |
 | `Shift+Enter` | In a field | Move to the previous field that needs checking |
-| `Ctrl+Enter` | In an address box | Same as `Enter` (plain `Enter` makes a new line) |
+| `Ctrl+Enter` | In an address box | Same as `Enter` (plain `Enter` makes a new line). `Ctrl+Shift+Enter` goes back |
 | Up / Down | In the line items table | Same column, previous / next row |
 | `Esc` | In a field | Leave the field and return focus to the page |
 
