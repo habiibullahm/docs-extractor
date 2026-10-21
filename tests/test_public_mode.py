@@ -366,3 +366,13 @@ def test_llm_daily_cap_ignores_yesterday(make_client, tmp_path):
     add_doc(tmp_path, "c-yesterday", age_min=now.hour * 60 + now.minute + 1, approach="C")  # 23:59 UTC yesterday
     h = c.get("/health").json()
     assert h["available_approaches"] == ["A", "B", "C"] and h["llm_daily"]["used"] == 0
+
+
+# ------------------------------------------------------------------ UI copy
+
+def test_ui_mentions_retention_and_new_errors(make_client):
+    c = make_client()
+    assert 'id="privacy"' in c.get("/").text
+    js = c.get("/web/app.js").text
+    for needle in ("session_limit", "storage_full", "llm_daily_cap", "retention_minutes"):
+        assert needle in js, needle
