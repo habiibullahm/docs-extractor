@@ -73,6 +73,15 @@ def test_llm_approach_unavailable_without_key(client, monkeypatch):
     assert r.status_code == 400
 
 
+def test_ui_menu_uses_plain_labels_with_icons(client):
+    html = client.get("/").text
+    nav = html[html.index('<nav class="nav"'):html.index("</nav>")]
+    for label in ("Coba dokumen", "Perlu dicek", "Hasil"):
+        assert f"{label}</span>" in nav
+    assert nav.count('<svg class="i"') == 3
+    assert "Antrean cek" not in html and "Hasil &amp; angka" not in html
+
+
 def test_ui_and_health_for_ui(client):
     r = client.get("/")
     assert r.status_code == 200 and "meja cek dokumen" in r.text

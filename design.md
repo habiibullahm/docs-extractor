@@ -6,13 +6,15 @@ The code in `web/` follows this file. Where they differ, this file is the target
 "Changes from the current UI".
 
 Design read: a working tool for finance and tax admins who check extractions, in a paperwork-and-ledger visual
-language (a rubber stamp for decisions, an adding-machine tape for arithmetic), kept quiet so the scan is the loudest
-thing on screen.
+language (a rubber stamp for decisions, an adding-machine tape for arithmetic), in neutral greys on white, kept quiet so
+the scan is the loudest thing on screen. Colour appears only where a field or a document needs attention.
 
 Dial: ENERGY 1 / RHYTHM 2 / MOTION 1
 
 Direction was chosen by the product owner on 2026-10-21 ("choose the design best fit"). The Dribbble shot the owner
 first pointed to could not be opened from the build environment, so nothing here is copied from it.
+On 2026-10-21 the owner judged the blue-grey version "masih AI slop, tidak clean". The palette moved to neutral grey on
+white, and boxes, tints and chips were removed wherever a hairline or plain text says the same thing.
 
 ## Who uses it, and for what
 
@@ -35,9 +37,9 @@ The product has three jobs, in this order:
 | View | Menu label | Route | Purpose |
 |---|---|---|---|
 | Try a document | Coba dokumen | `#extract` | Sample gallery, upload, method picker. Opens the workspace when a result is ready. |
-| Review queue | Antrean cek | `#queue` | Documents routed to review, lowest score first. The default view when the queue is not empty. |
+| Review queue | Perlu dicek | `#queue` | Documents routed to review, lowest score first. The default view when the queue is not empty. |
 | Workspace | none | `#doc-<id>` | Scan on the left, fields on the right, actions at the bottom. Shared by the try and review flows. |
-| Results and numbers | Hasil & angka | `#metrics` | Download of approved data, live counts, which fields get corrected most, and the offline comparison. |
+| Results and numbers | Hasil | `#metrics` | Download of approved data, live counts, which fields get corrected most, and the offline comparison. |
 
 The top bar holds the menu button, the product name and the default method on this deployment. The three menu items
 and the queue count live in the sidebar (see "App shell"). The workspace can take the full width by collapsing it.
@@ -46,17 +48,17 @@ and the queue count live in the sidebar (see "App shell"). The workspace can tak
 
 ```
 +--------------------------------------------------------------------------------+
-| [=]  docex  meja cek dokumen                                  Metode bawaan A   |  top bar, 52px
+| [=]  docex  cek dokumen                                       Metode bawaan A   |  top bar, 56px
 +--------------+-----------------------------------------------------------------+
 | Coba dokumen |                                                                 |
-| Antrean  (12)|   the current view                                              |  sidebar 220px
-| Hasil & angka|                                                                 |
+| Perlu dicek 12|   the current view                                              |  sidebar 220px
+| Hasil        |                                                                 |
 +--------------+-----------------------------------------------------------------+
 ```
 
 - **Menu button** (hamburger, 40px) at the left of the top bar. It is the only control in the shell besides the
   three links. It has `aria-controls="sidebar"` and `aria-expanded`, and the label "Menu navigasi".
-- **Wide screens (above 900px).** The sidebar is open by default and sits beside the page, `--surface` with a
+- **Wide screens (above 900px).** The sidebar is open by default and sits beside the page, `--bg` with a
   `--line` edge, sticky under the top bar. The button collapses it to nothing so the workspace gets the full width,
   and the choice is remembered in the browser. A collapsed sidebar is `inert`, so its links leave the tab order.
 - **Narrow screens (900px and below).** The sidebar is a drawer over the page (280px at most, 85% of the width),
@@ -64,8 +66,8 @@ and the queue count live in the sidebar (see "App shell"). The workspace can tak
   page link and makes the page behind `inert`; Tab wraps between the button and the links. Esc, tapping the dim area,
   or choosing a page closes it. Esc and the dim area return focus to the button, choosing a page puts focus on the
   page. Crossing the 900px line resets to that width's default.
-- **Links** are 40px high text rows, no icons. The current page is `--ink-tint` with `--ink` text, and the queue
-  count sits at the right of its row. The workspace is not a menu item, so it has no current row.
+- **Links** are 40px high rows with an 18px icon before the label (see "Icons"). The current page is `--surface-2` with `--fg` text at weight 600, and the
+  queue count (`--ink` badge) sits at the right of its row. The workspace is not a menu item, so it has no current row.
 - Motion: the drawer and the collapse move in 160ms and drop to nothing under `prefers-reduced-motion`.
 
 ## Visual language
@@ -74,50 +76,73 @@ and the queue count live in the sidebar (see "App shell"). The workspace can tak
 
 Two motifs carry the identity and nothing else is decorative.
 
-1. **The stamp.** A decision (DISETUJUI, DIKOREKSI, DITOLAK) is stamped on the corner of the scan in stamp-ink
-   colour, the way a paper document is stamped at an Indonesian finance desk. It is the only large gesture in the
+1. **The stamp.** A decision (DISETUJUI, DIKOREKSI, DITOLAK) is stamped on the corner of the scan in `--ok`, or `--err`
+   for DITOLAK, the way a paper document is stamped at an Indonesian finance desk. It is the only large gesture in the
    product and the only place where uppercase is used.
 2. **The tape.** Arithmetic is shown the way an adding-machine tape prints it: right-aligned figures in a
    tabular face, a hairline above the result. The checks on a document use it (see "Calculation check").
 
-Everything else is plain: flat panels, one accent, no shadows except on the sticky action bar and toast.
+Everything else is plain:
+
+- White surfaces. Regions are separated by a hairline, not by a card. The only cards are the sample thumbnails.
+- No tinted panels. A weak or edited field gets a 2px left edge; a validation issue gets a small coloured dot; a status
+  chip is a dot and a word. Tints are left only in the line-items table, where a cell is too small for an edge.
+- The primary button is near-black (`--ink`). Blue (`--accent`) is reserved for focus, links, the source box and an
+  edited field.
+- Shadows only on the toast and the scan page.
+
+### Icons
+
+Lucide icons (ISC licence), inlined as SVG, 1.75px stroke in `currentColor`, always beside a text label and hidden
+from assistive technology (`aria-hidden`). They appear in two places only, so they help find a control without
+decorating the page:
+
+- The menu: `scan-text` Coba dokumen, `list-checks` Perlu dicek, `chart-column` Hasil (18px).
+- Buttons (16px): `arrow-left` back, `highlighter` Tandai kolom lemah, `zoom-in` / `zoom-out` Perbesar / Perkecil,
+  `x` Tolak, `save` Simpan koreksi, `check` Setujui, `plus` Tambah baris, `file-spreadsheet` Unduh Excel, `download`
+  CSV. The drop zone carries `upload` (24px).
+
+No icons in labels, chips, table cells, issues or headings.
 
 ### Colour tokens
 
-The palette is a cool grey with a slight blue bias and one accent, the stamp ink. Semantic colours mark state only.
+Neutral grey on white (the Tailwind "neutral" scale), near-black for the primary action, one blue for focus and
+places, and green, amber and red for state only. This replaced a blue-tinted grey with an indigo accent.
 
 | Token | Light | Dark | Use |
 |---|---|---|---|
-| `--bg` | `#F3F4F7` | `#121419` | Page background |
-| `--surface` | `#FFFFFF` | `#1A1D24` | Panels, inputs |
-| `--surface-2` | `#E9EBF0` | `#232731` | Scan backdrop, table header, hover |
-| `--line` | `#D5D9E1` | `#323744` | Dividers between panels and rows (decoration, not a control edge) |
-| `--line-strong` | `#80889A` | `#6B7385` | Edge of every input, button and drop zone |
-| `--fg` | `#171A21` | `#E6E8EE` | Primary text |
-| `--fg-muted` | `#5B6273` | `#9AA1B2` | Labels, secondary text |
-| `--ink` | `#3B3FA8` | `#9EA3F5` | Stamp ink: primary action, focus ring, decisions, links, the focused source box |
-| `--ink-tint` | `#ECEDFB` | `#262A4A` | Edited field, hover, selected nav item |
-| `--on-ink` | `#FFFFFF` | `#121419` | Text on `--ink` |
-| `--ok` | `#1E7A4C` | `#5CC48E` | Auto-approved, high confidence, checked field |
-| `--warn` | `#A15C00` | `#E7A64A` | Low confidence, warnings, source box of a weak field |
-| `--warn-tint` | `#FFF4E2` | `#2E2416` | Low-confidence row background |
-| `--err` | `#B42318` | `#F07A6E` | Validation errors, reject, a non-zero difference on the tape |
-| `--err-tint` | `#FDECEA` | `#33201E` | Error row background |
+| `--bg` | `#FFFFFF` | `#0A0A0A` | Page background |
+| `--surface` | `#FFFFFF` | `#0A0A0A` | Inputs, the fields panel, the action bar |
+| `--surface-2` | `#F5F5F5` | `#1A1A1A` | Scan backdrop, hover, selected menu row, method picker track, focused field |
+| `--line` | `#EBEBEB` | `#262626` | Hairlines between regions and rows, button edges |
+| `--line-strong` | `#8F8F8F` | `#737373` | Edge of every input and the drop zone |
+| `--fg` | `#171717` | `#F5F5F5` | Primary text |
+| `--fg-muted` | `#6B6B6B` | `#A3A3A3` | Labels, secondary text |
+| `--ink` | `#171717` | `#F5F5F5` | Primary button, queue count, pressed scan tool |
+| `--on-ink` | `#FFFFFF` | `#0A0A0A` | Text on `--ink` |
+| `--accent` | `#2563EB` | `#7AA2FF` | Focus ring, links, the source box and its label, edited field edge |
+| `--accent-tint` | `#EFF4FF` | `#172036` | Edited cell in the line-items table |
+| `--ok` | `#15803D` | `#4ADE80` | Auto-approved, high confidence, checked field, the approval stamp |
+| `--warn` | `#B45309` | `#F5A524` | Low confidence, warnings, source box of a weak field |
+| `--warn-tint` | `#FFF7ED` | `#261A0A` | Weak cell in the line-items table |
+| `--err` | `#B91C1C` | `#F87171` | Validation errors, reject, a non-zero difference on the tape |
+| `--err-tint` | `#FEF2F2` | `#2A1212` | Hover of the reject button, failed upload card |
 
 Both themes follow the system setting. Measured contrast (WCAG 2.x ratio):
 
 | Pair | Light | Dark |
 |---|---|---|
-| `--fg` on `--surface` | 17.4 | 13.8 |
-| `--fg-muted` on `--surface` | 6.1 | 6.5 |
-| `--fg-muted` on `--warn-tint` | 5.6 | 5.9 |
-| `--ink` on `--surface` | 8.5 | 7.2 |
-| `--ink` on `--ink-tint` | 7.3 | 6.0 |
-| `--on-ink` on `--ink` | 8.5 | 7.9 |
-| `--ok` on `--surface` | 5.3 | 7.8 |
-| `--warn` on `--warn-tint` | 4.8 | 7.2 |
-| `--err` on `--err-tint` | 5.8 | 5.7 |
-| `--line-strong` on `--surface` (needs 3.0) | 3.6 | 3.6 |
+| `--fg` on `--surface` | 17.9 | 18.2 |
+| `--fg-muted` on `--surface` | 5.3 | 7.8 |
+| `--fg-muted` on `--surface-2` | 4.9 | 6.9 |
+| `--accent` on `--surface` | 5.2 | 8.0 |
+| `--accent` on `--accent-tint` | 4.7 | 6.5 |
+| `--on-ink` on `--ink` | 17.9 | 18.2 |
+| `--ok` on `--surface` | 5.0 | 11.4 |
+| `--warn` on `--surface` | 5.0 | 9.7 |
+| `--warn` on `--warn-tint` | 4.7 | 8.3 |
+| `--err` on `--surface` | 6.5 | 7.2 |
+| `--line-strong` on `--surface` (needs 3.0) | 3.2 | 4.2 |
 
 ### Type
 
@@ -144,11 +169,12 @@ Fonts load from Google Fonts with system fallbacks, so the UI still works offlin
 
 ### Shape and spacing
 
-- 4px spacing unit. Panels use 16px or 24px padding.
-- Radius: 6px on inputs and buttons, 8px on grouped panels, 0 on the two split regions of the workspace (they are
-  regions, not cards). Cards exist only in the sample gallery.
-- Shadows only on the sticky action bar and the toast.
-- Focus: a 2px `--ink` outline with a 2px offset on every interactive element.
+- 4px spacing unit. Views use 40px top padding and 32px between sections; the fields panel uses 24px padding and 28px
+  between groups. Space separates things before a line does.
+- Radius: 6px on inputs, 8px on buttons, 10px on sample cards, the drop zone and the method picker, 0 on the two split
+  regions of the workspace (they are regions, not cards).
+- Shadows only on the toast and the scan page (a 1px hairline shadow so the white page reads on the grey backdrop).
+- Focus: a 2px `--accent` outline with a 2px offset on every interactive element.
 - Motion: 120ms colour and background transitions. The stamp fades in over 160ms. A source box appears in 120ms.
   Scan scrolling to a box is a smooth scroll. Everything is instant under `prefers-reduced-motion`.
 
@@ -158,7 +184,7 @@ This is the screen that matters most. Everything else leads to it.
 
 ```
 +--------------------------------------------------------------------------------+
-| < Kembali ke antrean  faktur-0002.jpg  Faktur pajak  Perlu dicek     metode A    |
+| <- Perlu dicek  faktur-0002.jpg  Faktur pajak  * Perlu dicek          metode A    |
 +-------------------------------------+------------------------------------------+
 |                          [Perbesar] | Tanggal terbaca dengan tingkat yakin     |
 |                                     | rendah (0,62).                           |
@@ -178,14 +204,15 @@ This is the screen that matters most. Everything else leads to it.
 
 - **Split view.** Scan left, fields right, each scrolling on its own. Under 900px the scan stacks above the fields
   and is capped at 60% of the viewport height.
-- **Fields are grouped the way the paper document is.** For a faktur pajak: document, seller, buyer, amounts, line
+- **Fields are grouped the way the paper document is,** under a plain 14px heading with hairlines between rows, not in
+  bordered cards. For a faktur pajak: document, seller, buyer, amounts, line
   items. Invoices and receipts follow their own schema order. Labels are plain Indonesian, with the official term in
   smaller text where one exists ("Dasar pajak", "DPP").
 - **Confidence belongs to each field.** Each row has a four-step meter (0 to 0.5, 0.5 to 0.8, 0.8 to 0.95, 0.95 and up)
-  and the number beside it. Fields below 0.8 get an amber left edge and a tinted row. Empty fields show "tidak
+  and the number beside it. Fields below 0.8 get a 2px amber left edge (no tint). Empty fields show "tidak
   ditemukan" in muted italic, so a reviewer can tell missing from empty.
-- **Critical fields carry a small "penting" tag** in `--ink`, sentence case. The weakest critical field, the one named
-  in the route reason, is scrolled into view and outlined when the workspace opens. It is not focused, so the `a`, `s`
+- **Critical fields carry a small "penting" tag** in `--fg-muted`, sentence case. The weakest critical field, the one named
+  in the route reason, is scrolled into view and shaded `--surface-2` when the workspace opens. It is not focused, so the `a`, `s`
   and `r` shortcuts work straight away.
 - **Values use Indonesian formats** and are accepted back in the same format: `Rp 12.500.000`, NPWP as
   `01.234.567.8-901.000`, dates shown as `3 Mei 2024` under the ISO input. The server re-normalizes every correction.
@@ -195,9 +222,9 @@ This is the screen that matters most. Everything else leads to it.
   | State | Row | Right-hand cell |
   |---|---|---|
   | Untouched, confident | no mark | meter and score |
-  | Untouched, weak | amber left edge, tint | meter and score in `--warn` |
-  | Checked | amber edge and tint removed, thin `--ok` edge | text "sudah dicek" |
-  | Edited | `--ink` edge and `--ink-tint` | text "diubah", meter hidden because the value is no longer the model's |
+  | Untouched, weak | amber left edge | meter and score in `--warn` |
+  | Checked | amber edge removed, thin `--ok` edge | text "sudah dicek" |
+  | Edited | `--accent` edge | text "diubah", meter hidden because the value is no longer the model's |
   | After saving a correction | no mark | text "dicek" |
 
   Checked is a mark on screen only. It is not sent to the server and is lost on reload.
@@ -213,7 +240,7 @@ to centre it (hover only draws the box, it does not scroll). The weakest field i
 
 - The box is an SVG layer over the scan image (`viewBox` 0 to 1, so the server's fractional positions are used as they
   are). It scales with zoom and with the stacked mobile layout.
-- Colour: `--ink` stroke 2px with a 12% `--ink` fill for the focused field. `--warn` stroke and fill for the other
+- Colour: `--accent` stroke 2px with a 12% `--accent` fill for the focused field. `--warn` stroke and fill for the other
   weak fields when "Tandai kolom lemah" is on.
 - A small label with the field name sits on the top edge of the focused box (below it when the box is at the top of
   the page), so colour is never the only signal. A line item row is labelled "Baris 2".
@@ -255,7 +282,8 @@ The figures below are an illustration of the layout (they come from a badly scan
 - The line-items check has no terms: "Jumlah rincian barang", the document's figure, and the difference.
 - Without expected values (older documents), the current plain sentence is shown instead.
 - The server's exact English message stays in the tooltip of the issue.
-- Errors are red-edged, warnings amber-edged. Each issue links to the field it concerns ("Lihat kolomnya").
+- Issues are a plain list. Each starts with a small dot, red for an error and amber for a warning, with the text in
+  `--fg`. Each issue links to the field it concerns ("Lihat kolomnya").
 
 ### Keyboard
 
@@ -276,7 +304,7 @@ fields, so approving stays one keypress. Shortcuts do nothing while a text input
 
 ## Try a document
 
-- The method picker is a three-way segmented control: **A OCR + aturan**, **B OCR + AI**, **C AI baca gambar**.
+- The method picker is a three-way segmented control: **A Baca otomatis**, **B Dibantu AI**, **C AI lihat gambar**.
   A method the deployment cannot run is disabled and says why in its tooltip and in the note under the control. On
   the demo deployment only A is on.
 - Samples are a grid of small cards with a thumbnail, document type, and scan quality shown as four bars plus a word
@@ -321,7 +349,7 @@ Every view has a loading, empty and error state. Copy is plain Indonesian, names
 |---|---|---|---|
 | Samples | Grid of grey cards | "Server ini tidak menyertakan contoh dokumen." | The API message, with a retry hint |
 | Upload | Status card with elapsed time | none | "File terlalu besar. Batasnya 10 MB. Coba scan yang lebih kecil atau satu halaman saja." |
-| Queue | Table header with "Memuat" row | "Belum ada dokumen yang perlu dicek. ... Coba contoh dokumen untuk melihatnya." | Row with the API message |
+| Queue | Table header with "Memuat" row | "Semua sudah dicek. ... Coba contoh dokumen untuk melihatnya." | Row with the API message |
 | Workspace | "Dokumen ini masih dibaca. Halaman ini terbuka sendiri setelah selesai." | none | "Data tidak ditemukan. Mungkin sudah terhapus saat server dimulai ulang." with a link back |
 | Source box | none | "lokasi di scan tidak ditemukan" under the field | Same line, never an error toast |
 | Calculation check | none | Falls back to the plain sentence | none |
@@ -331,7 +359,8 @@ Every view has a loading, empty and error state. Copy is plain Indonesian, names
 
 - Plain Indonesian for everything a user reads. Code, README and this file stay English. Keep the official tax term
   in small text beside the plain label ("Dasar pajak" with "DPP").
-- Name things the way a finance admin would: "Perlu dicek", "Disetujui otomatis", "tidak ditemukan".
+- Name things the way a finance admin would: "Perlu dicek", "Disetujui otomatis", "tidak ditemukan". Say "keyakinan"
+  and "batas aman", not "skor" and "threshold".
 - Buttons say exactly what happens: "Setujui", "Simpan 3 koreksi", "Tolak", "Unduh Excel". A toast repeats the
   button's word ("Disetujui.").
 - Errors say what went wrong and what to do next. They do not apologise.
@@ -341,8 +370,9 @@ Every view has a loading, empty and error state. Copy is plain Indonesian, names
 
 - Colour is never the only signal. A weak field also carries the text "kurang yakin, tingkat yakin 0,62" for screen
   readers, a checked field says "sudah dicek", and a source box carries a text label.
-- Text contrast is at least 4.5:1 in both themes, and the edge of every control is at least 3:1
-  (`--line-strong`). The table above lists the measured values.
+- Text contrast is at least 4.5:1 in both themes, and the edge of every input and the drop zone is at least 3:1
+  (`--line-strong`). Buttons are identified by their label (and the primary one by its fill), so their `--line` edge
+  is decoration, as WCAG 1.4.11 allows. The table above lists the measured values.
 - Every control works from the keyboard, every input has a visible label, and the focus ring is always visible.
 - The menu button reports `aria-expanded`. While the drawer is open the page behind it is `inert`, Esc closes it and
   returns focus to the button, and a closed sidebar is `inert` so hidden links cannot be tabbed to.
@@ -353,11 +383,10 @@ Every view has a loading, empty and error state. Copy is plain Indonesian, names
   (`tabindex="0"`, `role="region"`, a label) so a keyboard user can scroll it. The queue's rows are already tab stops. The method picker
   wraps onto a second line instead of running off the screen. Touch targets are at least 40px high in the action bar and
   the queue.
-- A focused queue row gets the 2px `--ink` ring drawn inside the row, not only the hover tint, which is too faint to count as a focus indicator.
+- A focused queue row gets the 2px `--accent` ring drawn inside the row, not only the hover tint, which is too faint to count as a focus indicator.
 - Every view has one `h1`, and headings go down one level at a time. In the workspace the `h1` is visually hidden and
   names the file, and each field group is an `h2`.
-- A chip that carries text on a tint (`.chip.warn`) uses the solid `--warn-tint` pair, which measures 4.8:1 in light and
-  7.2:1 in dark, not a translucent mix whose result depends on what sits behind it.
+- Status chips (`.chip.ok`, `.warn`, `.err`) are a dot and a word in the state colour on `--surface`, 5.0:1 or better.
 
 ## Changes from the current UI
 
@@ -372,9 +401,11 @@ Every view has a loading, empty and error state. Copy is plain Indonesian, names
 | Heading structure, focusable table containers, focus ring on queue rows, solid warn chip, wrapping method picker | Design review (axe-core found 3 failures, a manual pass found a 15px overflow at 390px) | Review PR |
 | One type family (IBM Plex Sans, Condensed for the stamp, Mono for values) in place of three faces | Fewer font requests, forms-and-ledger character, no pairing that reads as a default | PR 1 |
 | Sentence-case labels in place of tracked uppercase labels in headers, chips and tags | Reads as a template tell | PR 1 |
-| `--line-strong` on every control edge | The current `--line` edge is 1.4:1 on white, below the 3:1 needed for a control boundary | PR 1 |
+| `--line-strong` on every input edge | The current `--line` edge is 1.4:1 on white, below the 3:1 needed for a control boundary | PR 1 |
+| Neutral palette on white, hairlines in place of cards, dots in place of tinted issue boxes and chips, near-black primary button, blue only for focus and places, action buttons kept on one row | Owner review: "masih AI slop, tidak clean" | Clean PR |
+| Icons in the menu and on buttons, plainer copy ("Perlu dicek", "Hasil", "keyakinan", shorter intros, method names without jargon) | Owner request: "use more icon", "human language" | Clean PR |
 
-Not changing: the views themselves, colour tokens other than the one added, the stamp, the Indonesian copy, and the tabular
+Not changing: the views themselves, the stamp, the Indonesian copy, and the tabular
 figures. Not building now: drawing a box on the scan to fill a missing field, a command palette, or a template
 dashboard.
 

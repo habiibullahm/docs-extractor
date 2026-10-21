@@ -3,14 +3,29 @@
 
 const LOW_CONF = 0.8;
 const APPROACHES = {
-  A: { name: "OCR + aturan", note: "Dibaca di server sendiri dengan OCR Tesseract dan aturan teks. Gratis, tidak butuh kunci API." },
-  B: { name: "OCR + AI", note: "Teks hasil OCR dikirim ke model AI, lalu AI mengisi kolom-kolomnya." },
-  C: { name: "AI baca gambar", note: "Gambar dokumen langsung dibaca oleh model AI yang bisa melihat gambar." },
+  A: { name: "Baca otomatis", note: "Dibaca di server ini dengan OCR dan aturan teks. Gratis, tanpa kunci API." },
+  B: { name: "Dibantu AI", note: "Teks hasil OCR dibaca AI, lalu AI mengisi kolomnya." },
+  C: { name: "AI lihat gambar", note: "AI membaca gambar dokumen secara langsung." },
 };
 const DOC_TYPES = { faktur_pajak: "Faktur pajak", invoice: "Invoice", receipt: "Struk" };
 const DECISIONS = { approve: "DISETUJUI", correct: "DIKOREKSI", reject: "DITOLAK" };
 const DECIDED = { approve: "Disetujui", correct: "Dikoreksi", reject: "Ditolak" };
 const QUALITY = { clean: "bersih", light: "sedikit kotor", medium: "cukup kotor", heavy: "sangat kotor" };
+
+// Lucide icons (ISC licence), drawn with currentColor. Icons sit only in the menu and on buttons (design.md, "Icons").
+const ICON_PATHS = {
+  "arrow-left": '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  save: '<path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/>',
+  highlighter: '<path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/>',
+  "zoom-in": '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/><path d="M11 8v6"/><path d="M8 11h6"/>',
+  "zoom-out": '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/><path d="M8 11h6"/>',
+  plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+  download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
+  "file-spreadsheet": '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M8 13h2"/><path d="M14 13h2"/><path d="M8 17h2"/><path d="M14 17h2"/>',
+};
+const icon = (name) => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${ICON_PATHS[name]}</svg>`;
 
 // Field layout per document type, in the order the paper document uses (design.md, "The workspace").
 // Each item: [path, label, short note, kind]. Labels are plain Indonesian; the note keeps the official term.
@@ -389,7 +404,7 @@ async function refreshQueueCount() {
 }
 function scoreBar(score, thr) {
   const pass = score >= thr;
-  return `<span class="scorebar" title="skor ${num2(score)}, batas ${num2(thr)}"><span class="track">
+  return `<span class="scorebar" title="keyakinan ${num2(score)}, batas aman ${num2(thr)}"><span class="track">
     <span class="fill${pass ? " pass" : ""}" style="width:${Math.max(2, score * 100)}%"></span>
     <span class="thr" style="left:${Math.min(thr, 1) * 100}%"></span></span>${num2(score)}</span>`;
 }
@@ -408,7 +423,7 @@ async function loadQueue() {
   await refreshQueueCount();
   const body = $("#queue-body");
   if (!state.queue.length) {
-    body.innerHTML = `<tr><td colspan="5" class="empty">Belum ada dokumen yang perlu dicek. Dokumen dengan skor di bawah batas akan muncul di sini.
+    body.innerHTML = `<tr><td colspan="5" class="empty">Semua sudah dicek. Dokumen yang sistem kurang yakin membacanya akan muncul di sini.
       <a href="#extract">Coba contoh dokumen</a> untuk melihatnya.</td></tr>`;
     return;
   }
@@ -488,7 +503,7 @@ async function openDoc(id) {
   const view = $("#view-doc");
   let d;
   try { d = await api("GET", `/documents/${id}`); } catch (e) {
-    view.innerHTML = `<div class="view"><p class="empty">${esc(e.message)} <a href="#queue">Kembali ke antrean</a>.</p></div>`;
+    view.innerHTML = `<div class="view"><p class="empty">${esc(e.message)} <a href="#queue">Kembali ke Perlu dicek</a>.</p></div>`;
     return;
   }
   if (d.status === "queued" || d.status === "processing") {
@@ -535,7 +550,7 @@ function itemsTable(items) {
     <div class="items-wrap"><table class="items"><thead><tr><th class="num">#</th>
     ${ITEM_COLS.map(([, l, k]) => `<th${k !== "text" ? ' class="num"' : ""}>${l}</th>`).join("")}<th><span class="sr">Hapus</span></th></tr></thead>
     <tbody id="items-body">${rows}</tbody></table></div>
-    <div class="items-foot"><button type="button" id="add-item">Tambah baris</button>
+    <div class="items-foot"><button type="button" id="add-item">${icon("plus")}Tambah baris</button>
     <span>Jumlah semua baris <b id="items-sum"></b></span></div></section>`;
 }
 function itemRow(it, i) {
@@ -578,21 +593,21 @@ function renderDoc(d) {
   view.innerHTML = `
     <h1 class="sr-only">Cek dokumen ${esc(d.filename)}</h1>
     <div class="doc-head">
-      <button type="button" class="back" id="back">${state.fromQueue ? "Kembali ke antrean" : "Kembali ke Coba dokumen"}</button>
+      <button type="button" class="back" id="back" aria-label="Kembali ke ${state.fromQueue ? "Perlu dicek" : "Coba dokumen"}">${icon("arrow-left")}${state.fromQueue ? "Perlu dicek" : "Coba dokumen"}</button>
       <span class="fname">${esc(d.filename)}</span>
       <span class="chip">${esc(DOC_TYPES[type] || type || "jenis tidak dikenal")}</span>
       <span class="chip ${auto ? "ok" : "warn"}">${auto ? "Disetujui otomatis" : "Perlu dicek"}</span>
       ${d.repaired ? `<span class="chip" title="Data sempat salah, lalu AI diminta memperbaikinya satu kali">Diperbaiki AI</span>` : ""}
       ${ex.document_inconsistent ? `<span class="chip err">Angka di dokumen tidak cocok</span>` : ""}
       <span class="facts"><span>metode <b>${esc(d.approach)}</b></span>
-        <span>skor <b>${num2(d.score ?? 0)}</b> / batas <b>${num2(thr)}</b></span>
-        <span>waktu proses <b>${((d.latency_ms || 0) / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} detik</b></span></span>
+        <span>keyakinan <b>${num2(d.score ?? 0)}</b>, batas aman <b>${num2(thr)}</b></span>
+        <span>dibaca dalam <b>${((d.latency_ms || 0) / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} detik</b></span></span>
     </div>
     <div class="split">
       <div class="scan" id="scan">
         <div class="scan-tools"><span class="src-status" id="src-status" role="status"></span>
-          ${hasBoxes && !corrected ? `<button type="button" id="weak-toggle" aria-pressed="false">Tandai kolom lemah</button>` : ""}
-          <button type="button" id="zoom" aria-pressed="false">Perbesar</button></div>
+          ${hasBoxes && !corrected ? `<button type="button" id="weak-toggle" aria-pressed="false">${icon("highlighter")}Tandai kolom lemah</button>` : ""}
+          <button type="button" id="zoom" aria-pressed="false"><span class="ico">${icon("zoom-in")}</span><span class="lbl">Perbesar</span></button></div>
         ${decided ? `<span class="stamp${decided === "reject" ? " rejected" : ""}">${DECISIONS[decided]}</span>` : ""}
         <div class="page" id="page">
           <img src="/documents/${encodeURIComponent(d.id)}/preview" alt="Scan ${esc(d.filename)}, ${esc(DOC_TYPES[type] || "dokumen")}">
@@ -603,7 +618,7 @@ function renderDoc(d) {
       <div class="fields" id="fields">
         <div class="verdict">
           <p class="reason">${esc(humanReason(d.route_reason, type))}.${d.status === "failed" ? ` ${esc(failureText(d.error))}` : ""}
-            ${!auto && !decided ? "Cocokkan kolom yang ditandai dengan scan. <kbd>Enter</kbd> di sebuah kolom pindah ke kolom berikutnya yang perlu dicek. Lalu pilih Setujui, Simpan koreksi, atau Tolak." : ""}</p>
+            ${!auto && !decided ? "Cocokkan kolom yang ditandai dengan scan, lalu perbaiki yang salah. Tekan <kbd>Enter</kbd> untuk pindah ke kolom berikutnya." : ""}</p>
           ${issues ? `<ul class="issues">${issues}</ul>` : ""}
         </div>
         ${groups}
@@ -621,21 +636,26 @@ function renderDoc(d) {
       </div>
     </div>
     <div class="actionbar">
+      <div class="ab-info">
       <label class="reviewer" for="reviewer">Pemeriksa <input id="reviewer" value="${esc(localGet("reviewer") || "demo")}" autocomplete="off"></label>
       ${qi >= 0 ? `<span class="navhint">${qi + 1} dari ${state.queue.length} di antrean. <kbd>j</kbd> berikutnya, <kbd>k</kbd> sebelumnya</span>` : ""}
       <span class="sweep" id="sweep" role="status"></span>
       <span class="result" id="result">${decided ? `${DECIDED[decided]} oleh ${esc(d.review.reviewer)}${d.review.changed_fields?.length ? `, ${d.review.changed_fields.length} kolom diubah` : ""}.` : ""}</span>
-      <span class="spacer"></span>
-      <button type="button" class="danger" id="reject" title="Pintasan: R">Tolak<span class="k">R</span></button>
-      <button type="button" id="save" disabled title="Pintasan: S">Simpan koreksi<span class="k">S</span></button>
-      <button type="button" class="primary" id="approve" title="Pintasan: A">Setujui<span class="k">A</span></button>
+      </div>
+      <div class="ab-actions">
+      <button type="button" class="danger" id="reject" title="Pintasan: R">${icon("x")}Tolak<span class="k">R</span></button>
+      <button type="button" id="save" disabled title="Pintasan: S">${icon("save")}<span class="lbl">Simpan koreksi</span><span class="k">S</span></button>
+      <button type="button" class="primary" id="approve" title="Pintasan: A">${icon("check")}Setujui<span class="k">A</span></button>
+      </div>
     </div>`;
 
   $("#back").onclick = () => { location.hash = state.fromQueue ? "queue" : "extract"; };
   $("#zoom").onclick = (e) => {
     const z = $("#scan").classList.toggle("zoomed");
-    e.target.textContent = z ? "Kembali ke ukuran pas" : "Perbesar";
-    e.target.setAttribute("aria-pressed", z);
+    const b = e.currentTarget;
+    b.querySelector(".ico").innerHTML = icon(z ? "zoom-out" : "zoom-in");
+    b.querySelector(".lbl").textContent = z ? "Perkecil" : "Perbesar";
+    b.setAttribute("aria-pressed", z);
   };
   $("#fields").addEventListener("input", onEdit);
   wireSources(corrected ? null : d.sources);
@@ -644,7 +664,7 @@ function renderDoc(d) {
     if (go) focusField(go.dataset.goto);
     const rm = e.target.closest("[data-remove]");
     if (rm) { rm.closest("tr").remove(); state.removed++; renumberItems(); updateDirty(); }
-    if (e.target.id === "add-item") {
+    if (e.target.closest("#add-item")) {
       const body = $("#items-body");
       body.insertAdjacentHTML("beforeend", itemRow(null, body.rows.length));
       body.rows[body.rows.length - 1].querySelector("input").focus();
@@ -851,7 +871,7 @@ function updateDirty() {
   const n = editedCount();
   const btn = $("#save");
   btn.disabled = n === 0;
-  btn.firstChild.textContent = n ? `Simpan ${n} koreksi` : "Simpan koreksi";
+  btn.querySelector(".lbl").textContent = n ? `Simpan ${n} koreksi` : "Simpan koreksi";
 }
 function parseIdNumber(s) {
   const t = String(s).replace(/[^\d,.-]/g, "");
@@ -912,14 +932,14 @@ function exportSection(ex) {
     .filter(([k]) => by[k]).map(([k, label]) => `${by[k]} ${label}`);
   const body = ex.documents
     ? `<p class="src">${ex.documents} dokumen siap diunduh (${parts.join(", ")}), dengan ${ex.line_items} baris barang.
-        Dokumen yang ditolak atau masih di antrean cek tidak ikut. Untuk dokumen yang dikoreksi, yang diunduh adalah nilai hasil koreksi.</p>
+        Dokumen yang ditolak atau masih perlu dicek tidak ikut. Untuk dokumen yang dikoreksi, yang diunduh adalah nilai hasil koreksi.</p>
       <div class="export-actions">
-        <a class="btn primary" href="/export/approved?format=xlsx" download>Unduh Excel</a>
-        <a class="btn" href="/export/approved?format=csv" download>CSV dokumen</a>
-        <a class="btn" href="/export/approved?format=csv&part=items" download>CSV rincian barang</a>
+        <a class="btn primary" href="/export/approved?format=xlsx" download>${icon("file-spreadsheet")}Unduh Excel</a>
+        <a class="btn" href="/export/approved?format=csv" download>${icon("download")}CSV dokumen</a>
+        <a class="btn" href="/export/approved?format=csv&part=items" download>${icon("download")}CSV rincian barang</a>
       </div>
       <p class="src">File Excel berisi dua sheet: "Dokumen" (satu baris per dokumen) dan "Rincian barang" (satu baris per barang). Keduanya bisa dicocokkan lewat kolom <code>document_id</code>.</p>`
-    : `<p class="src">Belum ada dokumen yang disetujui. Setujui atau koreksi dokumen di Antrean cek, nanti datanya bisa diunduh di sini.</p>`;
+    : `<p class="src">Belum ada dokumen yang disetujui. Setujui atau koreksi dokumen di halaman Perlu dicek, nanti datanya bisa diunduh di sini.</p>`;
   return `<section class="metrics-sec"><h2>Unduh data yang sudah disetujui</h2>${body}</section>`;
 }
 // One label per path across document types; "total" is "Harga jual" on a faktur but "Total" everywhere else.
@@ -931,9 +951,9 @@ function anyFieldLabel(path) {
 }
 function correctionsSection(c) {
   const rows = c?.fields || [];
-  const intro = `<p class="src">Dihitung dari dokumen yang dikoreksi pemeriksa di Antrean cek. Kolom di urutan atas paling sering salah dibaca.</p>`;
+  const intro = `<p class="src">Dihitung dari dokumen yang dikoreksi pemeriksa. Kolom di urutan atas paling sering salah dibaca.</p>`;
   if (!rows.length) return `<section class="metrics-sec"><h2>Kolom yang paling sering dikoreksi</h2>${intro}
-    <p class="empty">Belum ada koreksi. Di Antrean cek, ubah sebuah kolom lalu pilih Simpan koreksi, nanti kolom itu muncul di sini.</p></section>`;
+    <p class="empty">Belum ada koreksi. Di halaman Perlu dicek, ubah sebuah kolom lalu pilih Simpan koreksi, nanti kolom itu muncul di sini.</p></section>`;
   const pct = (v) => `${(v * 100).toLocaleString("id-ID", { maximumFractionDigits: 0 })}%`;
   return `<section class="metrics-sec"><h2>Kolom yang paling sering dikoreksi</h2>${intro}
     <div class="table-wrap narrow" tabindex="0" role="region" aria-label="Kolom yang paling sering dikoreksi"><table><thead><tr><th>Kolom</th><th class="num">Dikoreksi</th><th class="num">Dari ${c.documents} dokumen yang dikoreksi</th></tr></thead><tbody>
@@ -953,12 +973,12 @@ async function loadMetrics() {
     <section class="metrics-sec"><h2>Server ini</h2>
       <p class="src">Angka langsung dari dokumen yang diproses server ini sejak dinyalakan. Data demo bisa hilang saat server dimulai ulang.</p>
       <div class="stats">
-        ${stat(m.documents, "dokumen diproses")}
-        ${stat(pct(m.auto_approve_rate), "disetujui otomatis")}
-        ${stat(`${rv.approve || 0} / ${rv.correct || 0} / ${rv.reject || 0}`, "disetujui / dikoreksi / ditolak")}
-        ${stat(m.latency_ms_p50 == null ? "–" : `${(m.latency_ms_p50 / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} detik`, "waktu proses biasa (p50)")}
-        ${stat(m.latency_ms_p95 == null ? "–" : `${(m.latency_ms_p95 / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} detik`, "waktu proses terlama (p95)")}
-        ${stat(`$${(m.cost_usd_total || 0).toFixed(4)}`, "biaya API dan server")}
+        ${stat(m.documents, "Dokumen diproses")}
+        ${stat(pct(m.auto_approve_rate), "Disetujui otomatis")}
+        ${stat(`${rv.approve || 0} / ${rv.correct || 0} / ${rv.reject || 0}`, "Disetujui, dikoreksi, ditolak")}
+        ${stat(m.latency_ms_p50 == null ? "–" : `${(m.latency_ms_p50 / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} detik`, "Waktu baca biasa (p50)")}
+        ${stat(m.latency_ms_p95 == null ? "–" : `${(m.latency_ms_p95 / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} detik`, "Waktu baca terlama (p95)")}
+        ${stat(`$${(m.cost_usd_total || 0).toFixed(4)}`, "Biaya API")}
       </div></section>
     ${correctionsSection(m.corrections_by_field)}
     <section class="metrics-sec"><h2>Hasil uji dengan data contoh</h2>
