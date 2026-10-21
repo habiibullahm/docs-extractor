@@ -1,6 +1,7 @@
 """Pipeline tests with a mocked LLM (no network) and the real local OCR path."""
 import json
 import io
+import time
 
 import pytest
 from PIL import Image, ImageDraw
@@ -219,6 +220,36 @@ def test_gemini_retries_429_then_reports_quota(monkeypatch):
         p.complete_json("sys", ["x"], {"type": "object"})
     assert len(calls) == 3
 
+
+def test_gemini_quota_429_hides_b_and_c_until_reset(monkeypatch):
+    import httpx
+
+    from docex.providers.llm import ProviderError, llm_available, quota_paused_until
+
+    section = {"provider": "gemini", "model": "gemini-flash-latest"}
+    body = {"error": {"code": 429, "details": [{"@type": "type.googleapis.com/google.rpc.RetryInfo", "retryDelay": "300s"}]}}
+    p, _ = _gemini(monkeypatch, lambda req: httpx.Response(429, json=body), min_interval_s=0, max_retries=0)
+    assert llm_available(section)
+    with pytest.raises(ProviderError, match="nothing billed"):
+        p.complete_json("sys", ["x"], {"type": "object"})
+    assert not llm_available(section)
+    assert 290 < quota_paused_until() - time.time() <= 300
+
+    reset = quota_paused_until() + 1
+    monkeypatch.setattr(time, "time", lambda: reset)
+    assert quota_paused_until() is None and llm_available(section)
+
+
+def test_gemini_quota_wait_follows_the_quota_kind():
+    from datetime import datetime, timezone
+
+    from docex.providers.llm import _quota_wait_s
+
+    now = datetime(2026, 10, 21, 6, 20, tzinfo=timezone.utc)  # 23:20 the day before in Los Angeles (PDT)
+    assert _quota_wait_s('"quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier"', now) == 40 * 60
+    assert _quota_wait_s('"retryDelay": "39s"', now) == 60.0  # never shorter than a minute
+    assert _quota_wait_s('"retryDelay": "120s"', now) == 120.0
+    assert _quota_wait_s("quota", now) == 600.0
 
 def test_gemini_spaces_requests(monkeypatch):
     import httpx

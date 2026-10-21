@@ -306,7 +306,8 @@ in the server's `.env`. The B/C numbers in this README come from one `eval-full`
 The default provider is the **Gemini API free tier** (`GEMINI_API_KEY`). It costs nothing only under one
 condition: the key comes from a Google AI Studio project that has **no billing account attached**. Without
 billing, a request over the free limit is rejected with HTTP 429 and nothing is charged; the provider retries
-a 429 a few times, then marks the document as failed. Once billing is turned on for that project, the same
+a 429 a few times, then marks the document as failed and hides B and C (in `/health` and the UI) until the quota
+resets: midnight Pacific time for the daily quota, Google's `retryDelay` for a per-minute one. Once billing is turned on for that project, the same
 calls are charged at paid-tier prices. Other points about the free tier:
 
 * Google may use free-tier prompts and responses (here: the document images and OCR text) to improve its

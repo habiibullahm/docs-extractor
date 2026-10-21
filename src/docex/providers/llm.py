@@ -14,12 +14,14 @@ from __future__ import annotations
 import base64
 import json
 import os
+import re
 import threading
 import time
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Optional, Protocol, Union
 
-from docex.config import pipeline_config
+from docex.config import DATA_DIR, pipeline_config
 
 
 @dataclass
@@ -282,9 +284,48 @@ class GeminiProvider(OpenAICompatibleProvider):
             retry_after = r.headers.get("retry-after", "")
             self._sleep(float(retry_after) if retry_after.isdigit() else 10.0 * 2 ** attempt)
         if r.status_code == 429:
+            pause_for_quota(r.text)
             raise ProviderError("gemini free-tier quota reached (429, nothing billed); "
                                 f"wait for the quota to reset: {r.text[:200]}")
         return r
+
+
+# A file, not a variable: the API (which answers /health) and an RQ worker (which sees the 429) are separate processes.
+QUOTA_FILE = DATA_DIR / "gemini_quota.json"
+
+
+def _quota_wait_s(body: str, now: datetime) -> float:
+    """How long the free quota stays used up: a daily quota resets at midnight Pacific time, a per-minute one
+    after Google's retryDelay. Retries already waited about a minute, so an unknown 429 pauses for 10 minutes."""
+    if "PerDay" in body:
+        try:
+            from zoneinfo import ZoneInfo
+            pacific = ZoneInfo("America/Los_Angeles")
+        except Exception:  # slim images may ship without tz data; PST is close enough
+            pacific = timezone(timedelta(hours=-8))
+        local = now.astimezone(pacific)
+        midnight = datetime.combine(local.date() + timedelta(days=1), datetime.min.time(), pacific)
+        return (midnight - local).total_seconds()
+    m = re.search(r'"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"', body)
+    return max(60.0, float(m.group(1))) if m else 600.0
+
+
+def pause_for_quota(body: str) -> None:
+    until = time.time() + _quota_wait_s(body, datetime.now(timezone.utc))
+    try:
+        QUOTA_FILE.parent.mkdir(parents=True, exist_ok=True)
+        QUOTA_FILE.write_text(json.dumps({"until": until}))
+    except OSError:
+        pass  # without a writable data dir B and C stay listed; each document still fails with the quota message
+
+
+def quota_paused_until() -> Optional[float]:
+    """Unix time until which B and C are hidden because the Gemini free quota ran out, or None."""
+    try:
+        until = float(json.loads(QUOTA_FILE.read_text())["until"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    return until if until > time.time() else None
 
 
 class MockProvider:
@@ -344,7 +385,7 @@ def llm_available(section: dict[str, Any]) -> bool:
     if provider in GATED_PROVIDERS and not paid_llm_enabled():
         return False
     if provider == "gemini":
-        return bool(os.environ.get("GEMINI_API_KEY"))
+        return bool(os.environ.get("GEMINI_API_KEY")) and quota_paused_until() is None
     if provider == "openai":
         return bool(os.environ.get("OPENAI_API_KEY"))
     if provider == "anthropic":

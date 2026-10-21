@@ -278,7 +278,8 @@ fields, so approving stays one keypress. Shortcuts do nothing while a text input
 
 - The method picker is a three-way segmented control: **A OCR + aturan**, **B OCR + AI**, **C AI baca gambar**.
   A method the deployment cannot run is disabled and says why in its tooltip and in the note under the control. On
-  the demo deployment only A is on.
+  the demo deployment only A is on. When the free Gemini quota runs out, B and C are hidden rather than disabled
+  until it resets, and the note says roughly when they come back.
 - Samples are a grid of small cards with a thumbnail, document type, and scan quality shown as four bars plus a word
   (bersih, sedikit kotor, cukup kotor, sangat kotor). Quality is shown because it predicts the outcome.
 - Upload accepts PDF, PNG, JPG and WEBP up to 10 MB by drag-and-drop or file picker. A line under the drop zone says
@@ -370,6 +371,7 @@ Every view has a loading, empty and error state. Copy is plain Indonesian, names
 | Source box on the scan, "Tandai kolom lemah", OCR-read page served as the scan | Audit: a field does not point to where it came from | PR 3 |
 | Sidebar with a hamburger button in the top bar, drawer on narrow screens | Navigation request: the menu moves out of the top bar, and the workspace can reclaim the width | Shell PR |
 | Heading structure, focusable table containers, focus ring on queue rows, solid warn chip, wrapping method picker | Design review (axe-core found 3 failures, a manual pass found a 15px overflow at 390px) | Review PR |
+| B and C hidden while the free Gemini quota is used up | Visitors kept picking B or C and getting the same quota error | Quota PR |
 | One type family (IBM Plex Sans, Condensed for the stamp, Mono for values) in place of three faces | Fewer font requests, forms-and-ledger character, no pairing that reads as a default | PR 1 |
 | Sentence-case labels in place of tracked uppercase labels in headers, chips and tags | Reads as a template tell | PR 1 |
 | `--line-strong` on every control edge | The current `--line` edge is 1.4:1 on white, below the 3:1 needed for a control boundary | PR 1 |

@@ -13,6 +13,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal, Optional
 
@@ -30,7 +31,7 @@ from docex.config import DATA_DIR, ROOT, pipeline_config, validation_config
 from docex.db.models import Document, Extraction, Review, get_document, init_db, review_queue, session
 from docex.observability import configure_logging, get_logger
 from docex.preprocess.image import load_pages
-from docex.providers.llm import llm_available
+from docex.providers.llm import llm_available, quota_paused_until
 from docex.validate.rules import get_path
 from docex.worker.tasks import enqueue, read_page_path
 
@@ -96,7 +97,21 @@ def health() -> dict[str, Any]:
             "thresholds": {a: default_threshold(a, CFG["scoring"]) for a in sections},
             "critical_fields": validation_config()["critical_fields"],
             "models": {"B": CFG["llm"]["model"], "C": CFG["vlm"]["model"]},
+            "llm_paused_until": _paused_until_iso(),
             "max_upload_mb": LIMITS["max_upload_mb"]}
+
+
+def _paused_until_iso() -> Optional[str]:
+    until = quota_paused_until()
+    return datetime.fromtimestamp(until, timezone.utc).isoformat(timespec="seconds") if until else None
+
+
+def _require_approach(approach: str) -> None:
+    if approach in ("B", "C") and not llm_available(CFG["llm" if approach == "B" else "vlm"]):
+        paused = _paused_until_iso()
+        if paused:
+            raise HTTPException(400, f"approach {approach} is paused until {paused}: the Gemini free-tier quota is used up")
+        raise HTTPException(400, f"approach {approach} is not available on this deployment (no model credentials)")
 
 
 @app.post("/documents", status_code=202)
@@ -112,8 +127,7 @@ async def upload(request: Request, file: UploadFile = File(...),
     if mime is None or mime not in LIMITS["allowed_types"]:
         raise HTTPException(415, f"unsupported file type; allowed: {LIMITS['allowed_types']}")
     approach = approach or default_approach()
-    if approach in ("B", "C") and not llm_available(CFG["llm" if approach == "B" else "vlm"]):
-        raise HTTPException(400, f"approach {approach} is not available on this deployment (no model credentials)")
+    _require_approach(approach)
     return _create(data, file.filename or "upload", mime, approach, doc_type)
 
 
@@ -367,8 +381,7 @@ def run_sample(request: Request, name: str, approach: Optional[Literal["A", "B",
     path = SAMPLES_DIR / index[name]["file"]
     data = path.read_bytes()
     approach = approach or default_approach()
-    if approach in ("B", "C") and not llm_available(CFG["llm" if approach == "B" else "vlm"]):
-        raise HTTPException(400, f"approach {approach} is not available on this deployment")
+    _require_approach(approach)
     return _create(data, path.name, sniff(data) or "image/jpeg", approach, None)
 
 

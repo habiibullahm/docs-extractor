@@ -190,7 +190,7 @@ function failureText(err) {
   if (/location is not supported/i.test(e)) return "Google menolak lokasi server ini, jadi Gemini tidak bisa dipanggil langsung. Server perlu lewat proxy.";
   if (/KEY is not set/i.test(e)) return "Kunci API untuk metode ini belum dipasang di server. Coba metode A.";
   if (/calls are disabled/i.test(e)) return "Metode B dan C sedang dimatikan di server ini. Coba metode A.";
-  if (code === 429 || /quota/i.test(e)) return "Kuota gratis Gemini sedang habis. Tunggu beberapa menit, lalu coba lagi.";
+  if (code === 429 || /quota/i.test(e)) return "Kuota gratis Gemini sedang habis, jadi metode B dan C disembunyikan dulu. Coba metode A.";
   if (code === 401 || code === 403) return "Kunci Gemini ditolak. Periksa kunci di server.";
   if (code) return `Layanan Gemini tidak bisa dihubungi (HTTP ${code}). Ini masalah di server atau proxy, bukan di scan-mu.`;
   if (/connection error|timed? ?out/i.test(e)) return "Layanan Gemini tidak bisa dihubungi. Coba lagi sebentar lagi.";
@@ -201,6 +201,7 @@ function errorText(status, data) {
   if (status === 413) return `File terlalu besar. Batasnya ${state.health?.max_upload_mb ?? 10} MB. Coba scan yang lebih kecil atau satu halaman saja.`;
   if (status === 415) return "Jenis file ini tidak didukung. Gunakan PDF, PNG, JPG, atau WEBP.";
   if (status === 429) return "Terlalu banyak permintaan dari alamat ini. Tunggu satu menit, lalu coba lagi.";
+  if (status === 400 && detail?.includes("quota")) return "Kuota gratis Gemini sedang habis, jadi metode B dan C disembunyikan dulu. Coba metode A.";
   if (status === 400 && detail?.includes("not available")) return "Metode ini belum aktif di server ini karena kunci API belum dipasang. Coba metode A.";
   if (status === 404) return "Data tidak ditemukan. Mungkin sudah terhapus saat server dimulai ulang.";
   if (status === 422) return "Ada nilai koreksi yang formatnya tidak bisa dibaca. Periksa angka dan tanggalnya, lalu simpan lagi.";
@@ -276,6 +277,7 @@ function renderApproachPicker() {
   const box = $("#approach-picker");
   box.querySelectorAll("label").forEach((l) => l.remove());
   for (const [code, a] of Object.entries(APPROACHES)) {
+    if (h.llm_paused_until && code !== "A") continue;  // quota used up: B and C come back when it resets
     const ok = h.available_approaches.includes(code);
     const model = h.models?.[code];
     const lab = document.createElement("label");
@@ -293,8 +295,28 @@ function renderApproachNote() {
   const missing = Object.keys(APPROACHES).filter((c) => !h.available_approaches.includes(c));
   let note = APPROACHES[a].note;
   if (h.models?.[a] && a !== "A") note += ` Model: ${h.models[a]}.`;
-  if (missing.length) note += ` Metode ${missing.join(" dan ")} belum aktif di server ini karena kunci API belum dipasang.`;
+  if (h.llm_paused_until) {
+    const at = new Date(h.llm_paused_until).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+    note += ` Metode B dan C disembunyikan sampai sekitar pukul ${at} karena kuota gratis Gemini habis.`;
+  } else if (missing.length) note += ` Metode ${missing.join(" dan ")} belum aktif di server ini karena kunci API belum dipasang.`;
   $("#approach-note").textContent = note;
+}
+// Re-read which methods the server can run: after a failed document (the quota may have just run out) and when a
+// quota pause ends, so B and C disappear and come back without a page reload.
+let pauseTimer;
+async function refreshHealth() {
+  try { state.health = await api("GET", "/health"); } catch { return; }
+  applyHealth();
+}
+function applyHealth() {
+  const h = state.health;
+  if (!h.available_approaches.includes(state.approach)) {
+    state.approach = h.available_approaches.includes(h.default_approach) ? h.default_approach : h.available_approaches[0];
+  }
+  renderApproachPicker();
+  clearTimeout(pauseTimer);
+  const wait = h.llm_paused_until ? new Date(h.llm_paused_until) - Date.now() : 0;
+  if (wait > 0 && wait < 2 ** 31) pauseTimer = setTimeout(refreshHealth, wait + 5000);
 }
 async function loadSamples() {
   const box = $("#samples");
@@ -347,13 +369,13 @@ async function submit(start, label) {
   };
   paint("queued");
   let job;
-  try { job = await start(); } catch (e) { box.className = "progress failed"; box.textContent = e.message; return; }
+  try { job = await start(); } catch (e) { box.className = "progress failed"; box.textContent = e.message; refreshHealth(); return; }
   for (;;) {
     await new Promise((r) => setTimeout(r, 900));
     let d;
     try { d = await api("GET", `/documents/${job.job_id}`); } catch (e) { continue; }
     if (d.status === "done") { box.hidden = true; state.fromQueue = false; location.hash = `doc-${d.id}`; refreshQueueCount(); return; }
-    if (d.status === "failed") { box.className = "progress failed"; box.textContent = failureText(d.error); return; }
+    if (d.status === "failed") { box.className = "progress failed"; box.textContent = failureText(d.error); refreshHealth(); return; }
     paint(d.status);
   }
 }
@@ -998,10 +1020,9 @@ function localSet(k, v) { try { localStorage.setItem(`docex.${k}`, v); } catch {
     return;
   }
   const h = state.health;
-  state.approach = h.available_approaches.includes(h.default_approach) ? h.default_approach : h.available_approaches[0];
   $("#deploy-info").innerHTML = `Metode bawaan <b>${esc(h.default_approach)}</b>`;
   $("#max-mb").textContent = h.max_upload_mb;
-  renderApproachPicker();
+  applyHealth();
   setupUpload();
   loadSamples();
   await refreshQueueCount();

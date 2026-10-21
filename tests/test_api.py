@@ -127,6 +127,19 @@ def test_key_alone_does_not_enable_paid_approaches(client, monkeypatch):
     assert r.status_code == 400
 
 
+def test_quota_pause_hides_b_and_c(client, monkeypatch):
+    from docex.providers.llm import pause_for_quota
+
+    monkeypatch.setenv("GEMINI_API_KEY", "test")
+    monkeypatch.setenv("DOCEX_ENABLE_LLM", "true")  # nothing is sent: only the availability check runs
+    h = client.get("/health").json()
+    assert h["available_approaches"] == ["A", "B", "C"] and h["llm_paused_until"] is None
+    pause_for_quota('"retryDelay": "300s"')
+    h = client.get("/health").json()
+    assert h["available_approaches"] == ["A"] and h["llm_paused_until"]
+    r = client.post("/documents", files={"file": ("x.png", _png(), "image/png")}, data={"approach": "B"})
+    assert r.status_code == 400 and "quota" in r.json()["detail"]
+
 def test_weak_fields_lists_critical_fields_weakest_first():
     from docex.api.app import weak_fields
 
