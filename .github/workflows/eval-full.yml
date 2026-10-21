@@ -1,7 +1,7 @@
 name: eval-full
 
 # Manual: rebuild the synthetic dataset and run approaches A, B and C on the same machine,
-# then publish the comparison as an artifact (commit it to eval/reports/ to update the README).
+# then publish the comparison as an artifact (commit it to eval/reports/ and run `python -m eval.summarize --docs` to update docs/technical.md).
 
 on:
   workflow_dispatch:
@@ -13,7 +13,7 @@ on:
         description: "max documents per approach (empty = whole split)"
         default: ""
       approaches:
-        description: "A, or A,C etc. B/C call the Gemini free tier (secret GEMINI_API_KEY, project without billing); use a limit, see README Cost control"
+        description: "A, or A,C etc. B/C call the Gemini free tier (secret GEMINI_API_KEY, project without billing); use a limit, see docs/operations.md, Cost control"
         default: "A"
 
 jobs:

@@ -2,7 +2,7 @@ name: deploy-hf-space
 
 # Pushes the repo to a Hugging Face Docker Space. Needs the HF_TOKEN secret (write access).
 # Optional: repository variable HF_SPACE (e.g. "user/docex-demo"); defaults to <hf-user>/docex-demo.
-# The HF deploy never copies a model key: the demo runs approach A only (paid APIs are disabled, see README).
+# The HF deploy never copies a model key: the demo runs approach A only (paid APIs are disabled, see docs/operations.md).
 
 on:
   push:

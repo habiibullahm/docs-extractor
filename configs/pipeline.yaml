@@ -11,7 +11,7 @@ preprocess:
 ocr:
   provider: tesseract   # tesseract | rapidocr
   languages: "ind+eng"
-  psm: 6                # tesseract page segmentation mode (6 won on train, see README)
+  psm: 6                # tesseract page segmentation mode (6 won on train, see docs/technical.md)
 
 # Default provider is the Gemini API free tier (GEMINI_API_KEY from a Google project without billing).
 # Other options: provider: openai, model: gpt-4.1-mini (OPENAI_API_KEY); provider: anthropic,
