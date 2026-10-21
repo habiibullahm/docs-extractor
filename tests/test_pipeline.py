@@ -245,3 +245,17 @@ def test_gemini_base_url_override_and_https_guard(monkeypatch):
         GeminiProvider("gemini-flash-latest")
     monkeypatch.setenv("GEMINI_BASE_URL", "http://localhost:8080/v1beta/openai")
     assert GeminiProvider("gemini-flash-latest")  # nothing is sent: the provider only builds its client
+
+
+def test_provider_error_never_stores_an_html_page():
+    import httpx
+
+    from docex.providers.llm import OpenAICompatibleProvider, ProviderError
+
+    page = "<!DOCTYPE html><html><body>" + "x" * 5000 + "</body></html>"
+    transport = httpx.MockTransport(lambda req: httpx.Response(404, text=page))
+    p = OpenAICompatibleProvider("https://proxy.example.com/v1beta/openai", "m", api_key="k")
+    p._http = httpx.Client(base_url="https://proxy.example.com/v1beta/openai", transport=transport)
+    with pytest.raises(ProviderError) as e:
+        p.complete_json("s", ["hi"], {"type": "object"})
+    assert "error 404" in str(e.value) and "<" not in str(e.value) and len(str(e.value)) < 200

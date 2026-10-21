@@ -167,7 +167,7 @@ class OpenAICompatibleProvider:
         t0 = time.perf_counter()
         r = self._post(body)
         if r.status_code >= 400:
-            raise ProviderError(f"{self.name} error {r.status_code}: {r.text[:300]}")
+            raise ProviderError(f"{self.name} error {r.status_code}: {_error_body(r.text)}")
         j = r.json()
         choice = j["choices"][0]
         if choice["message"].get("refusal"):
@@ -200,6 +200,14 @@ class OpenAIProvider(OpenAICompatibleProvider):
             raise ProviderError("OPENAI_API_KEY is not set")
         super().__init__(os.environ.get("OPENAI_BASE_URL", base_url), model, api_key=key, timeout=120,
                          max_tokens=max_tokens)
+
+
+def _error_body(text: str) -> str:
+    """Short, single-line error body. An HTML page (CDN or proxy error) is not worth storing."""
+    t = text.strip()
+    if t[:1] == "<":
+        return "(HTML page instead of JSON; check the base URL or proxy)"
+    return t[:300]
 
 
 def _require_https(url: str) -> None:
