@@ -19,6 +19,9 @@ Two ways to run the proxy:
   so test it once before relying on it.
 * `nginx.conf.example`: nginx on any VPS in a supported country, with a TLS certificate.
 
+After deploying the Worker, open its address in a browser: it must show `gemini-proxy ok`. Any other page
+(for example `error code: 1042`) means the code on Cloudflare is not `worker.js` or was not deployed.
+
 Test with one request while billing is off on the Google project (free tier only):
 
 ```

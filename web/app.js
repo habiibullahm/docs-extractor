@@ -183,6 +183,19 @@ async function api(method, path, body) {
   if (!r.ok) throw new Error(errorText(r.status, data));
   return data;
 }
+// Raw provider errors can carry a whole HTML page (a proxy or CDN error). Show one plain sentence instead.
+function failureText(err) {
+  const e = String(err || "");
+  const code = Number((e.match(/error (\d{3})/) || [])[1]);
+  if (/location is not supported/i.test(e)) return "Google menolak lokasi server ini, jadi Gemini tidak bisa dipanggil langsung. Server perlu lewat proxy.";
+  if (/KEY is not set/i.test(e)) return "Kunci API untuk metode ini belum dipasang di server. Coba metode A.";
+  if (/calls are disabled/i.test(e)) return "Metode B dan C sedang dimatikan di server ini. Coba metode A.";
+  if (code === 429 || /quota/i.test(e)) return "Kuota gratis Gemini sedang habis. Tunggu beberapa menit, lalu coba lagi.";
+  if (code === 401 || code === 403) return "Kunci Gemini ditolak. Periksa kunci di server.";
+  if (code) return `Layanan Gemini tidak bisa dihubungi (HTTP ${code}). Ini masalah di server atau proxy, bukan di scan-mu.`;
+  if (/connection error|timed? ?out/i.test(e)) return "Layanan Gemini tidak bisa dihubungi. Coba lagi sebentar lagi.";
+  return "Dokumen ini gagal dibaca. Coba scan yang lebih jelas atau metode lain.";
+}
 function errorText(status, data) {
   const detail = typeof data?.detail === "string" ? data.detail : data?.error;
   if (status === 413) return `File terlalu besar. Batasnya ${state.health?.max_upload_mb ?? 10} MB. Coba scan yang lebih kecil atau satu halaman saja.`;
@@ -302,7 +315,7 @@ async function submit(start, label) {
     let d;
     try { d = await api("GET", `/documents/${job.job_id}`); } catch (e) { continue; }
     if (d.status === "done") { box.hidden = true; state.fromQueue = false; location.hash = `doc-${d.id}`; refreshQueueCount(); return; }
-    if (d.status === "failed") { box.className = "progress failed"; box.textContent = `Dokumen ini gagal dibaca${d.error ? ` (${d.error})` : ""}. Coba scan yang lebih jelas atau metode lain.`; return; }
+    if (d.status === "failed") { box.className = "progress failed"; box.textContent = failureText(d.error); return; }
     paint(d.status);
   }
 }
@@ -481,7 +494,7 @@ function renderDoc(d) {
       </div>
       <div class="fields" id="fields">
         <div class="verdict">
-          <p class="reason">${esc(humanReason(d.route_reason, type))}.${d.status === "failed" ? ` Dokumen ini gagal dibaca: ${esc(d.error)}` : ""}
+          <p class="reason">${esc(humanReason(d.route_reason, type))}.${d.status === "failed" ? ` ${esc(failureText(d.error))}` : ""}
             ${!auto && !decided ? "Cocokkan kolom yang ditandai dengan scan, lalu pilih Setujui, Simpan koreksi, atau Tolak." : ""}</p>
           ${issues ? `<ul class="issues">${issues}</ul>` : ""}
         </div>
