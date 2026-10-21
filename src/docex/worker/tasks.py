@@ -28,6 +28,23 @@ def _pipeline(approach: str):
         return _pipelines[approach]
 
 
+def read_page_path(storage_path: str) -> Path:
+    p = Path(storage_path)
+    return p.with_name(f"{p.stem}.read.jpg")
+
+
+def save_read_page(storage_path: str, image) -> None:
+    """Keep the page OCR read (deskewed, maybe rotated) so the review UI shows what the boxes refer to."""
+    import cv2
+
+    h, w = image.shape[:2]
+    if w > 1600:
+        image = cv2.resize(image, (1600, round(h * 1600 / w)), interpolation=cv2.INTER_AREA)
+    ok, buf = cv2.imencode(".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, 88])
+    if ok:
+        read_page_path(storage_path).write_bytes(buf.tobytes())
+
+
 def process_document(doc_id: str) -> None:
     with session() as s:
         doc = get_document(s, doc_id)
@@ -36,7 +53,8 @@ def process_document(doc_id: str) -> None:
         doc.status = "processing"
         path, approach, hint = doc.storage_path, doc.approach, doc.doc_type_hint
     try:
-        res = _pipeline(approach).run(Path(path).read_bytes(), doc_type_hint=hint)
+        res = _pipeline(approach).run(Path(path).read_bytes(), doc_type_hint=hint,
+                                      on_page=lambda img: save_read_page(path, img))
     except Exception as e:  # never leave a job stuck in "processing"
         log.exception("processing_failed", document_id=doc_id)
         with session() as s:

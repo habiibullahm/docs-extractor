@@ -32,7 +32,7 @@ from docex.observability import configure_logging, get_logger
 from docex.preprocess.image import load_pages
 from docex.providers.llm import llm_available
 from docex.validate.rules import get_path
-from docex.worker.tasks import enqueue
+from docex.worker.tasks import enqueue, read_page_path
 
 CFG = pipeline_config()
 LIMITS = CFG["limits"]
@@ -79,6 +79,8 @@ def _doc_out(doc: Document) -> dict[str, Any]:
                    extraction=r.get("extraction"), values=r.get("values"), issues=r.get("issues"),
                    repaired=r.get("repaired"), versions=ex.versions, usage=r.get("usage"),
                    latency_ms=ex.latency_ms, trace=r.get("trace"))
+        # boxes are positions on the page OCR read, so only offer them when that page is what /preview serves
+        out["sources"] = r.get("sources") if read_page_path(doc.storage_path).exists() else None
     if doc.reviews:
         rv = doc.reviews[-1]
         out["review"] = {"action": rv.action, "reviewer": rv.reviewer, "changed_fields": rv.changed_fields,
@@ -151,6 +153,9 @@ def preview(doc_id: str) -> Response:
         if not doc:
             raise HTTPException(404, "not found")
         path = doc.storage_path
+    read = read_page_path(path)
+    if read.exists():  # the page OCR read: source boxes are positions on this image
+        return Response(read.read_bytes(), media_type="image/jpeg")
     pages, _ = load_pages(Path(path).read_bytes(), dpi=110)
     ok, buf = cv2.imencode(".png", pages[0])
     return Response(buf.tobytes(), media_type="image/png")

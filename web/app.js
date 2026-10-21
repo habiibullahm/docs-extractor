@@ -490,7 +490,7 @@ function itemRow(it, i) {
       value="${esc(shown)}" aria-label="${label}, baris ${i + 1}" autocomplete="off" spellcheck="false"
       ${kind !== "text" ? 'inputmode="decimal"' : ""} title="${it && v != null ? `tingkat yakin ${num2(node.confidence)}` : ""}"></td>`;
   }).join("");
-  return `<tr data-row="${i}"><td class="idx">${i + 1}</td>${cells}<td class="rowtools"><button type="button" class="danger" data-remove="${i}" aria-label="Hapus baris ${i + 1}">Hapus</button></td></tr>`;
+  return `<tr data-row="${i}"${it ? ` data-src="${i}"` : ""}><td class="idx">${i + 1}</td>${cells}<td class="rowtools"><button type="button" class="danger" data-remove="${i}" aria-label="Hapus baris ${i + 1}">Hapus</button></td></tr>`;
 }
 
 function renderDoc(d) {
@@ -504,6 +504,7 @@ function renderDoc(d) {
   const auto = d.route === "auto_approved";
   const decided = d.review?.action;
   const corrected = d.review?.corrected_values || null;
+  const hasBoxes = Object.keys(d.sources || {}).length > 0;
   const items = corrected
     ? (corrected.line_items || []).map((it) => Object.fromEntries(Object.entries(it).map(([k, v]) => [k, typeof v === "boolean" ? v : { value: v, confidence: 1 }])))
     : ex.line_items || [];
@@ -528,9 +529,15 @@ function renderDoc(d) {
     </div>
     <div class="split">
       <div class="scan" id="scan">
-        <div class="scan-tools"><button type="button" id="zoom" aria-pressed="false">Perbesar</button></div>
+        <div class="scan-tools"><span class="src-status" id="src-status" role="status"></span>
+          ${hasBoxes && !corrected ? `<button type="button" id="weak-toggle" aria-pressed="false">Tandai kolom lemah</button>` : ""}
+          <button type="button" id="zoom" aria-pressed="false">Perbesar</button></div>
         ${decided ? `<span class="stamp${decided === "reject" ? " rejected" : ""}">${DECISIONS[decided]}</span>` : ""}
-        <img src="/documents/${encodeURIComponent(d.id)}/preview" alt="Scan ${esc(d.filename)}, ${esc(DOC_TYPES[type] || "dokumen")}">
+        <div class="page" id="page">
+          <img src="/documents/${encodeURIComponent(d.id)}/preview" alt="Scan ${esc(d.filename)}, ${esc(DOC_TYPES[type] || "dokumen")}">
+          <svg class="boxes" id="boxes" viewBox="0 0 1 1" preserveAspectRatio="none" aria-hidden="true"></svg>
+          <span class="src-label" id="src-label" hidden></span>
+        </div>
       </div>
       <div class="fields" id="fields">
         <div class="verdict">
@@ -570,6 +577,7 @@ function renderDoc(d) {
     e.target.setAttribute("aria-pressed", z);
   };
   $("#fields").addEventListener("input", onEdit);
+  wireSources(corrected ? null : d.sources);
   $("#fields").addEventListener("click", (e) => {
     const go = e.target.closest("[data-goto]");
     if (go) focusField(go.dataset.goto);
@@ -620,6 +628,7 @@ function focusField(path, smooth = true, focus = true) {
   }
   document.querySelectorAll(".field.target").forEach((r) => r.classList.remove("target"));
   row.classList.add("target");
+  setActiveSource(path, true);
   // Opening a document only points at the weakest field; focusing it would swallow the a/s/r shortcuts.
   if (focus) row.querySelector("input, textarea")?.focus({ preventScroll: true });
 }
@@ -632,6 +641,99 @@ function onEdit(e) {
   if (holder.classList.contains("field")) { paintRowState(holder); updateSweep(); }
   updateDirty();
   if (el.closest("#items-body")) updateSum();
+}
+
+// ---------------------------------------------------------------- source boxes on the scan
+// d.sources maps a field path to a box on the page OCR read, as fractions of that page. A field gets a box only when
+// the server was certain which printed value it came from, and loses it once the reviewer edits it.
+const src = { map: null, focus: null, hover: null, weak: false };
+const sourceOf = (path) => (path && src.map?.[path]) || null;
+function rowOfSource(path) {
+  const m = String(path).match(/^line_items\.(\d+)$/);
+  return m ? document.querySelector(`#items-body tr[data-src="${m[1]}"]`) : document.querySelector(`#fields .field[data-field="${CSS.escape(path)}"]`);
+}
+function sourceEdited(path) {
+  const row = rowOfSource(path);
+  if (!row) return true;  // a removed item row
+  return row.matches("tr") ? !!row.querySelector("td.edited") : row.classList.contains("edited");
+}
+function sourcePathOf(el) {
+  const field = el.closest?.("#fields .field");
+  if (field) return field.dataset.field;
+  const tr = el.closest?.("#items-body tr");
+  return tr?.dataset.src != null ? `line_items.${tr.dataset.src}` : null;
+}
+function sourceName(path) {
+  const m = String(path).match(/^line_items\.(\d+)$/);
+  return m ? `Baris ${Number(rowOfSource(path)?.dataset.row ?? m[1]) + 1}` : upperFirst(fieldLabel(path, state.doc?.doc_type));
+}
+function paintSources() {
+  const svg = $("#boxes");
+  if (!svg) return;
+  const active = src.hover || src.focus;
+  const draw = (path, weak) => {
+    const [x, y, w, h] = sourceOf(path).box;
+    const px = 0.004, py = 0.002;
+    const x0 = Math.max(0, x - px), y0 = Math.max(0, y - py);
+    return `<rect class="src-box${weak ? " weak" : ""}" data-src="${path}" x="${x0}" y="${y0}" width="${Math.min(1 - x0, w + 2 * px)}" height="${Math.min(1 - y0, h + 2 * py)}"/>`;
+  };
+  const show = (p) => sourceOf(p) && !sourceEdited(p);
+  const weakPaths = src.weak ? [...document.querySelectorAll("#fields .field.low")].map((r) => r.dataset.field).filter((p) => p !== active && show(p)) : [];
+  svg.innerHTML = weakPaths.map((p) => draw(p, true)).join("") + (show(active) ? draw(active, false) : "");
+  const label = $("#src-label");
+  label.hidden = !show(active);
+  if (!label.hidden) {
+    const [x, y, , h] = sourceOf(active).box;
+    label.textContent = sourceName(active);
+    label.style.left = `${x * 100}%`;
+    label.style.top = `${(y < 0.03 ? y + h : y) * 100}%`;
+    label.classList.toggle("below", y < 0.03);
+  }
+  // Say why there is no box, so a missing box is not mistaken for a bug.
+  const status = $("#src-status");
+  const row = active && rowOfSource(active);
+  const hasValue = row && row.matches?.(".field") && row.querySelector("input, textarea")?.value.trim() && !row.classList.contains("edited");
+  status.textContent = hasValue && !sourceOf(active) ? `${sourceName(active)}: lokasi di scan tidak ditemukan.` : "";
+  status.title = status.textContent;
+}
+function setActiveSource(path, scroll) {
+  src.focus = path;
+  paintSources();
+  if (scroll && sourceOf(path) && !sourceEdited(path)) scrollScanTo(sourceOf(path).box);
+}
+function scrollScanTo([x, y, w, h]) {
+  const scan = $("#scan"), page = $("#page");
+  if (!scan || !page || getComputedStyle(scan).overflowY === "visible") return;
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const top = page.offsetTop + (y + h / 2) * page.offsetHeight - scan.clientHeight / 2;
+  const left = page.offsetLeft + (x + w / 2) * page.offsetWidth - scan.clientWidth / 2;
+  scan.scrollTo({ top: Math.max(0, top), left: Math.max(0, left), behavior: reduce ? "auto" : "smooth" });
+}
+function wireSources(map) {
+  src.map = map && Object.keys(map).length ? map : null;
+  src.focus = src.hover = null;
+  src.weak = false;
+  const fields = $("#fields");
+  fields.addEventListener("focusin", (e) => {
+    const p = sourcePathOf(e.target);
+    if (p) setActiveSource(p, true); else { src.focus = null; paintSources(); }
+  });
+  fields.addEventListener("focusout", (e) => { if (!fields.contains(e.relatedTarget)) { src.focus = null; paintSources(); } });
+  fields.addEventListener("mouseover", (e) => { const p = sourcePathOf(e.target); if (p !== src.hover) { src.hover = p; paintSources(); } });
+  fields.addEventListener("mouseleave", () => { src.hover = null; paintSources(); });
+  fields.addEventListener("input", () => paintSources());
+  $("#boxes").addEventListener("click", (e) => {
+    const p = e.target.closest?.("[data-src]")?.dataset.src;
+    if (!p) return;
+    const row = rowOfSource(p);
+    (row?.querySelector("input, textarea"))?.focus();
+  });
+  const toggle = $("#weak-toggle");
+  if (toggle) toggle.onclick = () => {
+    src.weak = !src.weak;
+    toggle.setAttribute("aria-pressed", src.weak);
+    paintSources();
+  };
 }
 
 // ---------------------------------------------------------------- sweep through the fields that need a look

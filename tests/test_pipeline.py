@@ -90,6 +90,21 @@ def test_approach_a_runs_without_credentials():
     assert res.usage["api_cost_usd"] == 0.0
 
 
+def test_sources_point_at_the_page_ocr_read():
+    pages = []
+    res = Pipeline("B", llm=MockProvider(responder(111000.0))).run(_png(), doc_type_hint="invoice", on_page=pages.append)
+    assert len(pages) == 1 and pages[0].shape[1] / pages[0].shape[0] == pytest.approx(1.5, abs=0.01)  # preprocessing resizes
+    x, y, w, h = res.sources["invoice_number"]["box"]
+    assert 0 <= x < 1 and 0 <= y < 1 and 0 < w <= 1 - x and 0 < h <= 1 - y
+    assert "INV-2025-001" in res.sources["invoice_number"]["text"]
+    assert any(t["name"] == "sources" for t in res.trace)
+
+
+def test_no_sources_without_ocr():
+    res = Pipeline("C", vlm=MockProvider(responder(111000.0))).run(_png(), doc_type_hint="invoice")
+    assert res.sources is None
+
+
 def test_cord_conversion():
     r = cord_to_receipt(CORD_SAMPLE)
     assert r["total"] == 60000.0 and r["subtotal"] == 54546.0
