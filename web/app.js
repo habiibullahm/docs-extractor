@@ -211,14 +211,29 @@ function failureText(err) {
   if (/connection error|timed? ?out/i.test(e)) return "Layanan Gemini tidak bisa dihubungi. Coba lagi sebentar lagi.";
   return "Dokumen ini gagal dibaca. Coba scan yang lebih jelas atau metode lain.";
 }
+// 120 -> "2 jam", 90 -> "90 menit"
+function durationText(minutes) {
+  return minutes >= 60 && minutes % 60 === 0 ? `${minutes / 60} jam` : `${minutes} menit`;
+}
+// Seconds until a paused approach returns: minutes for a short pause, hours for the daily cap.
+function waitText(seconds) {
+  const mins = Math.max(1, Math.ceil(seconds / 60));
+  return mins < 120 ? `${mins} menit` : `${Math.ceil(mins / 60)} jam`;
+}
 function errorText(status, data) {
   const detail = typeof data?.detail === "string" ? data.detail : data?.error;
+  if (detail === "session_limit") {
+    const n = state.health?.session_max_docs;
+    return `Batas ${n ? `${n} ` : ""}dokumen per sesi sudah tercapai. Dokumenmu terhapus otomatis nanti, lalu kamu bisa mencoba lagi.`;
+  }
+  if (detail === "storage_full") return "Server demo sedang penuh. Coba lagi beberapa jam lagi.";
+  if (detail === "llm_daily_cap") return "Batas harian metode B dan C untuk demo ini sudah habis. Pakai metode A, atau coba lagi besok.";
   if (status === 413) return `File terlalu besar. Batasnya ${state.health?.max_upload_mb ?? 10} MB. Coba scan yang lebih kecil atau satu halaman saja.`;
   if (status === 415) return "Jenis file ini tidak didukung. Gunakan PDF, PNG, JPG, atau WEBP.";
-  if (status === 429) return "Terlalu banyak permintaan dari alamat ini. Tunggu satu menit, lalu coba lagi.";
+  if (status === 429) return "Terlalu banyak permintaan dari alamat ini. Tunggu beberapa menit, lalu coba lagi.";
   if (status === 400 && detail?.includes("paused")) return "Metode B dan C sedang dijeda karena kuota gratis Gemini habis atau Google menolak lokasi server. Pakai metode A dulu.";
   if (status === 400 && detail?.includes("not available")) return "Metode ini belum aktif di server ini karena kunci API belum dipasang. Coba metode A.";
-  if (status === 404) return "Data tidak ditemukan. Mungkin sudah terhapus saat server dimulai ulang.";
+  if (status === 404) return `Data tidak ditemukan. Dokumen demo terhapus otomatis setelah ${durationText(state.health?.retention_minutes ?? 120)}, atau server baru dimulai ulang.`;
   if (status === 422) return "Ada nilai koreksi yang formatnya tidak bisa dibaca. Periksa angka dan tanggalnya, lalu simpan lagi.";
   if (status >= 500) return `Server sedang bermasalah (HTTP ${status}). Coba lagi sebentar lagi, atau pakai metode lain.`;
   return `Permintaan gagal (HTTP ${status})${detail ? `: ${detail}` : ""}. Coba lagi.`;
@@ -297,7 +312,7 @@ function renderApproachPicker() {
     const model = h.models?.[code];
     const lab = document.createElement("label");
     lab.title = ok ? `${a.note}${model ? ` Model: ${model}.` : ""}`
-      : h.paused_approaches?.[code] ? `Dijeda sementara: kuota gratis Gemini habis atau lokasi server ditolak.`
+      : h.paused_approaches?.[code] ? `Dijeda sementara: kuota gratis habis (Gemini atau batas harian demo), atau lokasi server ditolak.`
       : `Belum aktif di sini: kunci API untuk ${model} belum dipasang.`;
     lab.innerHTML = `<input type="radio" name="approach" id="approach-${code}" value="${code}" ${ok ? "" : "disabled"}
       ${state.approach === code ? "checked" : ""}><span><b>${code}</b>${a.name}</span>`;
@@ -314,8 +329,8 @@ function renderApproachNote() {
   let note = APPROACHES[a].note;
   if (h.models?.[a] && a !== "A") note += ` Model: ${h.models[a]}.`;
   if (paused.length) {
-    const mins = Math.max(1, Math.ceil(Math.max(...Object.values(h.paused_approaches)) / 60));
-    note += ` Metode ${paused.join(" dan ")} dijeda karena kuota gratis Gemini habis atau Google menolak lokasi server. Muncul lagi sekitar ${mins} menit lagi.`;
+    const left = waitText(Math.max(...Object.values(h.paused_approaches)));
+    note += ` Metode ${paused.join(" dan ")} dijeda karena kuota gratis habis (Gemini atau batas harian demo) atau Google menolak lokasi server. Muncul lagi sekitar ${left} lagi.`;
   }
   if (missing.length) note += ` Metode ${missing.join(" dan ")} belum aktif di server ini karena kunci API belum dipasang.`;
   $("#approach-note").textContent = note;
@@ -1043,6 +1058,7 @@ function localSet(k, v) { try { localStorage.setItem(`docex.${k}`, v); } catch {
   state.approach = h.available_approaches.includes(h.default_approach) ? h.default_approach : h.available_approaches[0];
   $("#deploy-info").innerHTML = `Metode bawaan <b>${esc(h.default_approach)}</b>`;
   $("#max-mb").textContent = h.max_upload_mb;
+  $("#privacy").textContent = `File yang kamu unggah hanya terlihat di browser ini dan dihapus otomatis setelah ${durationText(h.retention_minutes)}. Tetap jangan unggah dokumen asli yang memuat NPWP atau NIK.`;
   renderApproachPicker();
   setupUpload();
   loadSamples();

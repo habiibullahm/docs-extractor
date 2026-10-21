@@ -10,7 +10,7 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Any, Iterator, Optional
 
-from sqlalchemy import JSON, DateTime, Float, ForeignKey, Integer, String, Text, create_engine, select
+from sqlalchemy import JSON, DateTime, Float, ForeignKey, Integer, String, Text, create_engine, inspect, select, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
 
 from docex.config import DATA_DIR
@@ -36,6 +36,7 @@ class Document(Base):
     status: Mapped[str] = mapped_column(String(20), default="queued", index=True)  # queued|processing|done|failed
     approach: Mapped[str] = mapped_column(String(4))
     doc_type_hint: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    owner_id: Mapped[Optional[str]] = mapped_column(String(32), index=True, nullable=True)  # anonymous visitor
     error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
@@ -46,6 +47,14 @@ class Document(Base):
     @property
     def latest(self) -> Optional["Extraction"]:
         return self.extractions[-1] if self.extractions else None
+
+
+class LlmUsage(Base):
+    """B/C documents accepted per UTC day. Kept apart from documents so the retention cleaner cannot reset it."""
+    __tablename__ = "llm_usage"
+
+    day: Mapped[str] = mapped_column(String(10), primary_key=True)  # YYYY-MM-DD, UTC
+    count: Mapped[int] = mapped_column(Integer, default=0)
 
 
 class Extraction(Base):
@@ -100,7 +109,17 @@ def init_db(url: Optional[str] = None) -> None:
         kwargs["connect_args"] = {"check_same_thread": False}
     _engine = create_engine(url, **kwargs)
     Base.metadata.create_all(_engine)
+    _ensure_owner_column(_engine)
     _Session = sessionmaker(_engine, expire_on_commit=False)
+
+
+def _ensure_owner_column(engine) -> None:
+    """create_all does not alter existing tables: add documents.owner_id to a database made before it existed."""
+    if "owner_id" in {c["name"] for c in inspect(engine).get_columns("documents")}:
+        return
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE documents ADD COLUMN owner_id VARCHAR(32)"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_documents_owner_id ON documents (owner_id)"))
 
 
 @contextmanager
@@ -122,8 +141,11 @@ def get_document(s: Session, doc_id: str) -> Optional[Document]:
     return s.get(Document, doc_id)
 
 
-def review_queue(s: Session, limit: int = 50) -> list[Document]:
-    docs = s.scalars(select(Document).where(Document.status == "done").order_by(Document.created_at.desc())).all()
+def review_queue(s: Session, limit: int = 50, owner_id: Optional[str] = None) -> list[Document]:
+    q = select(Document).where(Document.status == "done")
+    if owner_id is not None:
+        q = q.where(Document.owner_id == owner_id)
+    docs = s.scalars(q.order_by(Document.created_at.desc())).all()
     out = []
     for d in docs:
         if d.latest and d.latest.route == "review" and not d.reviews:

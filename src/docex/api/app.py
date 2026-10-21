@@ -10,9 +10,12 @@ GET  /                   review UI (static app in web/, see design.md)
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import os
+import threading
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Literal, Optional
 
@@ -23,11 +26,12 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
 from sqlalchemy import func, select
 
+from docex.api.session import client_ip, current_sid, session_middleware
 from docex.config import DATA_DIR, ROOT, pipeline_config, validation_config
-from docex.db.models import Document, Extraction, Review, get_document, init_db, review_queue, session
+from docex.db.models import Document, Extraction, LlmUsage, Review, get_document, init_db, review_queue, session
+from docex.db.retention import purge_loop
 from docex.observability import configure_logging, get_logger
 from docex.preprocess.image import load_pages
 from docex.providers.llm import llm_available, llm_paused_seconds
@@ -42,9 +46,10 @@ MAGIC = {b"%PDF-": "application/pdf", b"\x89PNG": "image/png", b"\xff\xd8\xff": 
 
 configure_logging(os.environ.get("LOG_LEVEL", "INFO"))
 log = get_logger("docex.api")
-limiter = Limiter(key_func=get_remote_address, default_limits=[])
+limiter = Limiter(key_func=client_ip, default_limits=[])
 app = FastAPI(title="docex — Indonesian financial document extraction", version="0.1.0")
 app.state.limiter = limiter
+app.middleware("http")(session_middleware)
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
@@ -52,6 +57,16 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 def _startup() -> None:
     STORAGE.mkdir(parents=True, exist_ok=True)
     init_db()
+
+
+@app.on_event("startup")
+async def _start_cleaner() -> None:
+    app.state.purge_task = asyncio.create_task(purge_loop())
+
+
+@app.on_event("shutdown")
+async def _stop_cleaner() -> None:
+    app.state.purge_task.cancel()
 
 
 def default_approach() -> str:
@@ -101,14 +116,22 @@ def health() -> dict[str, Any]:
     from docex.scoring.score import default_threshold
 
     sections = {"A": None, "B": CFG["llm"], "C": CFG["vlm"]}
+    available = [a for a, s in sections.items() if s is None or llm_available(s)]
+    paused = {a: llm_paused_seconds(s) for a, s in sections.items() if s is not None and llm_paused_seconds(s)}
+    daily = {"limit": int(limits()["llm_daily_docs"]), "used": llm_docs_today()}
+    if daily["used"] >= daily["limit"]:  # B and C share the free Gemini quota: stop offering them for today
+        until_midnight = int((_utc_midnight() + timedelta(days=1) - datetime.now(timezone.utc)).total_seconds())
+        for a in [a for a in available if a != "A"]:
+            available.remove(a)
+            paused[a] = max(paused.get(a, 0), until_midnight)
     return {"ok": True, "default_approach": default_approach(),
-            "available_approaches": [a for a, s in sections.items() if s is None or llm_available(s)],
-            "paused_approaches": {a: llm_paused_seconds(s) for a, s in sections.items()
-                                  if s is not None and llm_paused_seconds(s)},
+            "available_approaches": available, "paused_approaches": paused, "llm_daily": daily,
+            "session_max_docs": int(limits()["session_max_docs"]),
             "thresholds": {a: default_threshold(a, CFG["scoring"]) for a in sections},
             "critical_fields": validation_config()["critical_fields"],
             "models": {"B": CFG["llm"]["model"], "C": CFG["vlm"]["model"]},
-            "max_upload_mb": LIMITS["max_upload_mb"]}
+            "max_upload_mb": LIMITS["max_upload_mb"],
+            "retention_minutes": int(pipeline_config()["limits"]["retention_minutes"])}
 
 
 @app.post("/documents", status_code=202)
@@ -125,43 +148,92 @@ async def upload(request: Request, file: UploadFile = File(...),
         raise HTTPException(415, f"unsupported file type; allowed: {LIMITS['allowed_types']}")
     approach = approach or default_approach()
     _require_available(approach)
-    return _create(data, file.filename or "upload", mime, approach, doc_type)
+    return _create(data, file.filename or "upload", mime, approach, doc_type, current_sid(request))
 
 
-def _create(data: bytes, filename: str, mime: str, approach: str, doc_type: Optional[str]) -> dict[str, Any]:
+def limits() -> dict[str, Any]:
+    """Read per request so DOCEX_LIMITS__* overrides apply without a reload."""
+    return pipeline_config()["limits"]
+
+
+def _utc_midnight() -> datetime:
+    return datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def _utc_day() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+
+def llm_docs_today() -> int:
+    with session() as s:
+        row = s.get(LlmUsage, _utc_day())
+        return row.count if row else 0
+
+
+def _check_caps(sid: str, approach: str, size: int) -> None:
+    """Refuse an upload that would break a demo limit: per-visitor count, total stored bytes, daily B/C use."""
+    lim = limits()
+    window = datetime.now(timezone.utc) - timedelta(minutes=int(lim["retention_minutes"]))
+    with session() as s:
+        mine = s.scalar(select(func.count(Document.id)).where(
+            Document.owner_id == sid, Document.created_at >= window)) or 0
+        stored = s.scalar(select(func.coalesce(func.sum(Document.size_bytes), 0))) or 0
+    if mine >= int(lim["session_max_docs"]):
+        raise HTTPException(429, "session_limit")
+    if stored + size > float(lim["storage_max_mb"]) * 1024 * 1024:
+        raise HTTPException(503, "storage_full")
+    if approach in ("B", "C") and llm_docs_today() >= int(lim["llm_daily_docs"]):
+        raise HTTPException(429, "llm_daily_cap")
+
+
+_create_lock = threading.Lock()  # cap check and insert must be one step, or concurrent requests overshoot a cap
+
+
+def _create(data: bytes, filename: str, mime: str, approach: str, doc_type: Optional[str],
+            owner_id: str) -> dict[str, Any]:
     digest = hashlib.sha256(data).hexdigest()
     ext = {"application/pdf": ".pdf", "image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp",
            "image/tiff": ".tif"}[mime]
-    with session() as s:
-        doc = Document(filename=filename[:255], content_type=mime, sha256=digest, size_bytes=len(data),
-                       storage_path="", approach=approach, doc_type_hint=doc_type)
-        s.add(doc)
-        s.flush()
-        path = STORAGE / f"{doc.id}{ext}"
-        path.write_bytes(data)
-        doc.storage_path = str(path)
-        doc_id = doc.id
+    with _create_lock:
+        _check_caps(owner_id, approach, len(data))
+        with session() as s:
+            doc = Document(filename=filename[:255], content_type=mime, sha256=digest, size_bytes=len(data),
+                           storage_path="", approach=approach, doc_type_hint=doc_type, owner_id=owner_id)
+            s.add(doc)
+            s.flush()
+            path = STORAGE / f"{doc.id}{ext}"
+            path.write_bytes(data)
+            doc.storage_path = str(path)
+            doc_id = doc.id
+            if approach in ("B", "C"):
+                usage = s.get(LlmUsage, _utc_day())
+                if usage is None:
+                    s.add(LlmUsage(day=_utc_day(), count=1))
+                else:
+                    usage.count += 1
     enqueue(doc_id)
     log.info("document_received", document_id=doc_id, mime=mime, size=len(data), approach=approach)
     return {"job_id": doc_id, "status": "queued", "approach": approach}
 
 
+def _owned(s, doc_id: str, sid: str) -> Document:
+    """The caller's own document; someone else's looks exactly like a missing one."""
+    doc = get_document(s, doc_id)
+    if not doc or doc.owner_id != sid:
+        raise HTTPException(404, "not found")
+    return doc
+
+
 @app.get("/documents/{doc_id}")
-def get_doc(doc_id: str) -> dict[str, Any]:
+def get_doc(request: Request, doc_id: str) -> dict[str, Any]:
     with session() as s:
-        doc = get_document(s, doc_id)
-        if not doc:
-            raise HTTPException(404, "not found")
-        return _doc_out(doc)
+        return _doc_out(_owned(s, doc_id, current_sid(request)))
 
 
 @app.get("/documents/{doc_id}/preview")
-def preview(doc_id: str) -> Response:
+def preview(request: Request, doc_id: str) -> Response:
     with session() as s:
-        doc = get_document(s, doc_id)
-        if not doc:
-            raise HTTPException(404, "not found")
-        path = doc.storage_path
+        path = _owned(s, doc_id, current_sid(request)).storage_path
     read = read_page_path(path)
     if read.exists():  # the page OCR read: source boxes are positions on this image
         return Response(read.read_bytes(), media_type="image/jpeg")
@@ -171,9 +243,10 @@ def preview(doc_id: str) -> Response:
 
 
 @app.get("/documents")
-def list_docs(limit: int = 50) -> list[dict[str, Any]]:
+def list_docs(request: Request, limit: int = 50) -> list[dict[str, Any]]:
     with session() as s:
-        docs = s.scalars(select(Document).order_by(Document.created_at.desc()).limit(min(limit, 200))).all()
+        docs = s.scalars(select(Document).where(Document.owner_id == current_sid(request))
+                         .order_by(Document.created_at.desc()).limit(min(limit, 200))).all()
         return [{"id": d.id, "filename": d.filename, "status": d.status,
                  "route": d.latest.route if d.latest else None, "score": d.latest.score if d.latest else None,
                  "doc_type": d.latest.doc_type if d.latest else None, "reviewed": bool(d.reviews)} for d in docs]
@@ -201,14 +274,14 @@ def weak_fields(doc_type: str, extraction: Optional[dict[str, Any]]) -> list[dic
 
 
 @app.get("/review/queue")
-def get_queue(limit: int = 50) -> list[dict[str, Any]]:
+def get_queue(request: Request, limit: int = 50) -> list[dict[str, Any]]:
     with session() as s:
         return [{"id": d.id, "filename": d.filename, "doc_type": d.latest.doc_type, "score": d.latest.score,
                  "approach": d.approach,
                  "route_reason": d.latest.result.get("route_reason"),
                  "weak_fields": weak_fields(d.latest.doc_type, d.latest.result.get("extraction")),
                  "created_at": d.created_at.isoformat()}
-                for d in review_queue(s, limit)]
+                for d in review_queue(s, limit, owner_id=current_sid(request))]
 
 
 class ReviewIn(BaseModel):
@@ -240,10 +313,10 @@ def corrections_by_field(changed_lists: list[Any], top: int = 10) -> dict[str, A
 
 
 @app.post("/review/{doc_id}")
-def submit_review(doc_id: str, body: ReviewIn) -> dict[str, Any]:
+def submit_review(request: Request, doc_id: str, body: ReviewIn) -> dict[str, Any]:
     with session() as s:
         doc = get_document(s, doc_id)
-        if not doc or not doc.latest:
+        if not doc or doc.owner_id != current_sid(request) or not doc.latest:
             raise HTTPException(404, "document not found or not processed yet")
         ex = doc.latest
         changed: list[str] = []
@@ -269,15 +342,20 @@ def submit_review(doc_id: str, body: ReviewIn) -> dict[str, Any]:
 
 
 @app.get("/metrics")
-def metrics() -> dict[str, Any]:
+def metrics(request: Request) -> dict[str, Any]:
+    sid = current_sid(request)
     with session() as s:
-        n_docs = s.scalar(select(func.count(Document.id))) or 0
-        by_status = dict(s.execute(select(Document.status, func.count()).group_by(Document.status)).all())
-        latest_ids = select(func.max(Extraction.id)).group_by(Extraction.document_id).scalar_subquery()
+        n_docs = s.scalar(select(func.count(Document.id)).where(Document.owner_id == sid)) or 0
+        by_status = dict(s.execute(select(Document.status, func.count()).where(Document.owner_id == sid)
+                                   .group_by(Document.status)).all())
+        latest_ids = (select(func.max(Extraction.id)).join(Document, Document.id == Extraction.document_id)
+                      .where(Document.owner_id == sid).group_by(Extraction.document_id).scalar_subquery())
         rows = s.execute(select(Extraction.route, Extraction.doc_type, Extraction.cost_usd, Extraction.latency_ms,
                                 Extraction.approach).where(Extraction.id.in_(latest_ids))).all()
-        reviews = dict(s.execute(select(Review.action, func.count()).group_by(Review.action)).all())
-        changed_lists = s.scalars(select(Review.changed_fields).where(Review.action == "correct")).all()
+        reviews = dict(s.execute(select(Review.action, func.count()).join(Document, Document.id == Review.document_id)
+                                 .where(Document.owner_id == sid).group_by(Review.action)).all())
+        changed_lists = s.scalars(select(Review.changed_fields).join(Document, Document.id == Review.document_id)
+                                  .where(Document.owner_id == sid, Review.action == "correct")).all()
     lat = sorted(r.latency_ms for r in rows)
     by_route: dict[str, int] = {}
     by_type: dict[str, int] = {}
@@ -307,11 +385,11 @@ DocTypeParam = Optional[Literal["faktur_pajak", "invoice", "receipt"]]
 
 
 @app.get("/export/approved/count")
-def export_count(doc_type: DocTypeParam = None) -> dict[str, Any]:
+def export_count(request: Request, doc_type: DocTypeParam = None) -> dict[str, Any]:
     from docex.api.export import approved
 
     with session() as s:
-        rows = approved(s, doc_type)
+        rows = approved(s, doc_type, owner_id=current_sid(request))
     by: dict[str, int] = {}
     for r in rows:
         by[r["meta"]["decision"]] = by.get(r["meta"]["decision"], 0) + 1
@@ -319,7 +397,7 @@ def export_count(doc_type: DocTypeParam = None) -> dict[str, Any]:
 
 
 @app.get("/export/approved")
-def export_approved(format: Literal["xlsx", "csv"] = "xlsx", part: Literal["documents", "items"] = "documents",
+def export_approved(request: Request, format: Literal["xlsx", "csv"] = "xlsx", part: Literal["documents", "items"] = "documents",
                     doc_type: DocTypeParam = None) -> Response:
     """Approved documents (auto-approved, approved or corrected by a reviewer).
 
@@ -331,7 +409,7 @@ def export_approved(format: Literal["xlsx", "csv"] = "xlsx", part: Literal["docu
     from docex.api.export import ITEM_COLS, approved, tables, to_csv, to_xlsx
 
     with session() as s:
-        cols, doc_rows, item_rows = tables(approved(s, doc_type))
+        cols, doc_rows, item_rows = tables(approved(s, doc_type, owner_id=current_sid(request)))
     stem = f"docex-disetujui-{date.today().isoformat()}{f'-{doc_type}' if doc_type else ''}"
     if format == "xlsx":
         body, media, name = (to_xlsx(cols, doc_rows, item_rows),
@@ -379,7 +457,7 @@ def run_sample(request: Request, name: str, approach: Optional[Literal["A", "B",
     data = path.read_bytes()
     approach = approach or default_approach()
     _require_available(approach)
-    return _create(data, path.name, sniff(data) or "image/jpeg", approach, None)
+    return _create(data, path.name, sniff(data) or "image/jpeg", approach, None, current_sid(request))
 
 
 # ------------------------------------------------------------------ review UI

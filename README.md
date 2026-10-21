@@ -6,7 +6,7 @@ silently accepted.
 
 > All data in this repository is synthetic or public (CORD). No real NPWP/NIK is used anywhere.
 
-**Live demo:** http://43.157.227.176:7860 (approach A only, synthetic samples, UI in Indonesian) · **Video:** _TODO_
+**Live demo:** http://43.157.227.176:7860 (approach A only, synthetic samples, UI in Indonesian, uploads private to your browser and deleted after 2 hours) · **Video:** _TODO_
 
 ---
 
@@ -319,6 +319,41 @@ calls are charged at paid-tier prices. Other points about the free tier:
 
 For OpenAI or Anthropic (paid), set a monthly spend limit in the provider's billing settings before turning
 `DOCEX_ENABLE_LLM` on.
+
+### Running it as a public demo
+
+Anyone can try the demo for free, so the API is built for visitors it does not know. The audience is people looking
+at a portfolio, not finance teams: there is no login, and the UI asks visitors not to upload real documents.
+
+* **Private per visitor.** A random cookie (`docex_sid`, HttpOnly, SameSite=Lax) marks the browser; every document
+  carries that id and the list, review queue, metrics and export show only the visitor's own. Someone else's
+  document returns the same 404 as a missing one.
+* **Deleted automatically.** A background task removes the file, the page image and all rows older than
+  `retention_minutes`, at startup and every 15 minutes. A job still running is never removed under the worker.
+* **Caps** (in `configs/pipeline.yaml` under `limits`, overridden with `DOCEX_LIMITS__<KEY>`):
+
+| Limit | Default | Protects | Error |
+|---|---|---|---|
+| `retention_minutes` | 120 | privacy, disk | documents disappear |
+| `session_max_docs` | 20 per visitor in the window | one visitor filling the disk | 429 `session_limit` |
+| `storage_max_mb` | 500 | the VPS disk | 503 `storage_full` |
+| `llm_daily_docs` | 20 B/C documents per UTC day | the free Gemini quota | 429 `llm_daily_cap`, B and C show as paused |
+| `rate_limit` | `30/minute;30/hour` per IP | a script that sends no cookie (the session cap cannot see it) | 429 |
+
+Approach A is never capped by the daily limit. The daily B/C count lives in its own `llm_usage` table, so the cleaner
+deleting old documents does not reset it. The cap check and the insert run under one lock, so concurrent requests
+cannot overshoot a cap. The 10 MB size cap and the magic-byte type check stay. `storage_max_mb` counts uploaded
+files, not the cached page images, so real disk use is a little higher.
+
+* **Behind a proxy.** Set `DOCEX_TRUST_PROXY=true` when a front proxy sits in front of the API, so the rate limit
+  uses the first `X-Forwarded-For` address and the cookie gets `Secure` from `X-Forwarded-Proto`. Leave it off for a
+  direct deployment: otherwise a visitor could spoof the header. The flag trusts whoever can reach the port, so
+  firewall the origin to the proxy, or a script that hits the server's address directly can pick its own address.
+* **Scripts need the cookie.** A client without a cookie jar is a new visitor on every call, so it cannot read its
+  own result: `curl -c jar -b jar -F file=@scan.pdf http://HOST/documents`, then `curl -b jar http://HOST/documents/ID`.
+
+Not handled on purpose: accounts, per-user keys and a privacy policy for real tax data. The demo is plain HTTP until
+it has a domain.
 
 ### Deploy
 
