@@ -111,7 +111,7 @@ files, not the cached page images, so real disk use is a little higher.
   own result: `curl -c jar -b jar -F file=@scan.pdf http://HOST/documents`, then `curl -b jar http://HOST/documents/ID`.
 
 Not handled on purpose: accounts, per-user keys and a privacy policy for real tax data. The demo is plain HTTP until
-it has a domain.
+it has a domain (see Public URL on Vercel).
 
 ### Deploy
 
@@ -141,6 +141,32 @@ them out and selects A. They come back by themselves when the pause ends. The pa
 so a restart clears it.
 
 `deploy.yml` can also push the same container to a Hugging Face Docker Space when the `HF_TOKEN` secret is set.
+
+### Public URL on Vercel
+
+Vercel only fronts the demo (HTTPS and a domain). Tesseract and the FastAPI app keep running in the VPS container,
+because Vercel cannot run them. `deploy/vercel/vercel.json` has one rewrite that sends every path to the origin:
+
+```
+visitor  ->  https://<project>.vercel.app  ->  rewrite  ->  http://43.157.227.176:7860  (docex container)
+```
+
+1. In Vercel, import this repository and set **Root Directory** to `deploy/vercel`. No build command, no framework.
+2. Deploy once, then run `bash deploy/vercel/check.sh https://<project>.vercel.app` from the repository root. It checks
+   `/health`, an approach-A upload with the cookie round trip, that a visitor without the cookie gets 404, and a
+   9.5 MB upload. Vercel does not document whether a rewrite accepts an `http://IP:port` origin or what body size it
+   passes, so run this before sharing the link.
+3. On the VPS add `DOCEX_TRUST_PROXY=true` to `.env` and run `bash deploy/vps.sh`, so the rate limit sees visitors'
+   addresses and the cookie is `Secure`. Do this only after step 2 passes: with the flag on and no proxy in front,
+   anyone can spoof their address.
+4. Add the domain in Vercel (Settings, Domains) and put the https link in the README.
+
+Limits to know: Vercel waits up to 120 seconds for the origin to start answering (older docs say 30). Vercel's
+addresses are not fixed, so the origin cannot be firewalled to them; a script that calls `http://43.157.227.176:7860`
+directly can send its own `X-Forwarded-For`. The per-session cap, the storage cap and the daily B/C cap do not depend
+on that header, so the worst case is a bypassed per-IP rate limit. The hop from Vercel to the VPS is plain HTTP; the
+demo only handles synthetic documents. If step 2 fails, point the domain's A record at the VPS and run Caddy there
+instead.
 
 ## Repository layout
 
